@@ -109,7 +109,8 @@ async def view_task(
         await callback.message.answer(texts.TASK_GONE)
         return
 
-    reason = unsuitable_reason(user, task)
+    prior, days = await db.check_history(user["tg_id"], check.code)
+    reason = unsuitable_reason(user, task, prior_count=prior, days_since_last=days)
     if reason is not None:
         await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
         return
@@ -148,19 +149,20 @@ async def claim(
         await callback.answer(texts.TASK_CLOSED, show_alert=True)
         return
 
-    reason = unsuitable_reason(user, task)
-    if reason is not None:
-        await callback.answer()
-        await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
-        return
-
     check = check_by_code(task["check_code"])
     if check is None:
         await callback.answer(texts.TASK_GONE, show_alert=True)
         return
 
-    # Серьёзные задания (регистрация ИП) требуют отдельного подтверждения:
-    # человек должен увидеть последствия до того, как слот будет занят.
+    prior, days = await db.check_history(user["tg_id"], check.code)
+    reason = unsuitable_reason(user, task, prior_count=prior, days_since_last=days)
+    if reason is not None:
+        await callback.answer()
+        await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
+        return
+
+    # Серьёзные задания (регистрация ИП, займ) требуют отдельного
+    # подтверждения: последствия человек видит до того, как слот занят.
     if check.needs_ack:
         await callback.answer()
         await callback.message.answer(
@@ -195,6 +197,24 @@ async def _assign(
         await callback.answer()
         return
 
+    # Последняя проверка перед занятием слота. Кнопку подтверждения могли
+    # нажать много позже, успев взять такое же задание в другом диалоге,
+    # поэтому лимиты повторов перепроверяем здесь, а не только до показа.
+    user = await db.get_user(callback.from_user.id)
+    task = await db.get_task(task_id)
+    if user is None or task is None:
+        await callback.answer(texts.TASK_GONE, show_alert=True)
+        return
+
+    check = check_by_code(task["check_code"])
+    if check is not None:
+        prior, days = await db.check_history(user["tg_id"], check.code)
+        reason = unsuitable_reason(user, task, prior_count=prior, days_since_last=days)
+        if reason is not None:
+            await callback.answer()
+            await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
+            return
+
     assignment_id, code = await db.claim_task(task_id, callback.from_user.id)
 
     if code == "no_task":
@@ -214,9 +234,7 @@ async def _assign(
     if acknowledged and assignment_id is not None:
         await db.set_ack(assignment_id)
 
-    task = await db.get_task(task_id)
-    check = check_by_code(task["check_code"]) if task else None
-    if task is None or check is None:
+    if check is None:
         return
 
     # Убираем кнопку, чтобы её не нажимали повторно.

@@ -119,6 +119,34 @@ def test_faq_does_not_mistake_tip_for_ip():
         assert _match_faq(phrasing) is not None, phrasing
 
 
+def test_faq_mfo_answer_separates_safe_and_loan_tasks():
+    """В группе нельзя отвечать про МФО одной строкой: задания разные."""
+    match = _match_faq("а что там по мфо?")
+    assert match is not None
+    answer = match[1].lower()
+    # Безопасные задания названы отдельно от задания с долгом.
+    assert "без денег" in answer
+    assert "реальным займом" in answer or "реальный займ" in answer
+    # Названы оба последствия, которые люди недооценивают.
+    assert "в срок" in answer
+    assert "кредитной истории" in answer
+    assert "ипотек" in answer
+    # И отказ переводить деньги дальше.
+    assert "долг останется" in answer
+
+
+def test_faq_mfo_matches_common_phrasings():
+    for phrasing in (
+        "можно взять микрозайм?",
+        "что за задания с займами",
+        "а займ надо брать?",
+        "это про мфо?",
+    ):
+        match = _match_faq(phrasing)
+        assert match is not None, phrasing
+        assert "МФО" in match[1], phrasing
+
+
 def test_faq_returns_none_for_unrelated_text():
     assert _match_faq("всем привет, как погода") is None
 

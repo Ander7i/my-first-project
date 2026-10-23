@@ -126,11 +126,20 @@ def render_check(check: CheckType) -> str:
     return card
 
 
-def unsuitable_reason(user: Any, task: Any) -> str | None:
+def unsuitable_reason(
+    user: Any,
+    task: Any,
+    *,
+    prior_count: int = 0,
+    days_since_last: int | None = None,
+) -> str | None:
     """Почему задание не подходит исполнителю. None — подходит.
 
     Проверяется при взятии задания, а не только при рассылке: ссылку на
     задание могут переслать, да и анкета человека могла поменяться.
+
+    prior_count и days_since_last — история по этому же виду проверки
+    (db.check_history). Без них лимиты повторов не проверяются.
     """
     check = check_by_code(task["check_code"])
     if check is None:
@@ -147,6 +156,16 @@ def unsuitable_reason(user: Any, task: Any) -> str | None:
 
     if not task["remote"] and task["city_key"] != normalize_city(user["city"] or ""):
         return texts.REASON_CITY
+
+    # Лимиты повторов: защищают человека от накопления записей в кредитной
+    # истории и от упора в законный лимит на число одновременных займов.
+    if check.max_per_user and prior_count >= check.max_per_user:
+        return texts.REASON_MAX_REACHED.format(limit=check.max_per_user)
+
+    if check.cooldown_days and days_since_last is not None:
+        left = check.cooldown_days - days_since_last
+        if left > 0:
+            return texts.REASON_COOLDOWN.format(days=left)
 
     return None
 

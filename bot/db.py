@@ -369,6 +369,18 @@ class Database:
                 continue
             if await self.taken_slots(row["id"]) >= row["slots"]:
                 continue
+            # Задание, упёршееся в лимит повторов, не показываем вовсе:
+            # предлагать то, что нельзя взять, хуже, чем не предлагать.
+            if check.max_per_user or check.cooldown_days:
+                taken, days = await self.check_history(user["tg_id"], check.code)
+                if check.max_per_user and taken >= check.max_per_user:
+                    continue
+                if (
+                    check.cooldown_days
+                    and days is not None
+                    and days < check.cooldown_days
+                ):
+                    continue
             suitable.append(row)
         return suitable
 
@@ -439,6 +451,38 @@ class Database:
         except Exception:
             await self.conn.rollback()
             raise
+
+    async def check_history(self, user_id: int, check_code: str) -> tuple[int, int | None]:
+        """Сколько раз человек уже брал такую проверку и сколько дней назад.
+
+        Возвращает (количество, дней с последнего взятия). Второе — None,
+        если человек такую проверку ещё не брал. Нужно для cooldown_days и
+        max_per_user: там, где каждое повторение что-то стоит человеку.
+        """
+        async with self.conn.execute(
+            """
+            SELECT COUNT(*) AS taken, MAX(a.claimed_at) AS last_at
+              FROM assignments a
+              JOIN tasks t ON t.id = a.task_id
+             WHERE a.user_id = ? AND t.check_code = ? AND a.status != ?
+            """,
+            (user_id, check_code, CANCELLED),
+        ) as cur:
+            row = await cur.fetchone()
+
+        if row is None or not row["taken"]:
+            return 0, None
+
+        days: int | None = None
+        if row["last_at"]:
+            try:
+                last = datetime.fromisoformat(row["last_at"])
+            except ValueError:
+                return int(row["taken"]), None
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=UTC)
+            days = max((datetime.now(UTC) - last).days, 0)
+        return int(row["taken"]), days
 
     async def set_ack(self, assignment_id: int) -> None:
         """Фиксирует, что исполнитель подтвердил предупреждения по заданию."""

@@ -312,6 +312,15 @@ async def dispatch_task(bot: Bot, db: Database, task_id: int) -> tuple[int, int]
 
     sent = failed = 0
     for user in users:
+        # Не рассылаем тем, кто упёрся в лимит повторов: иначе человек
+        # получит задание, которое бот тут же откажется ему отдать.
+        if check.max_per_user or check.cooldown_days:
+            taken, days = await db.check_history(user["tg_id"], check.code)
+            if check.max_per_user and taken >= check.max_per_user:
+                continue
+            if check.cooldown_days and days is not None and days < check.cooldown_days:
+                continue
+
         ok = await send_safe(
             bot,
             user["tg_id"],
