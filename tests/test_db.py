@@ -330,6 +330,21 @@ async def test_open_tasks_for_user_hides_taken_and_full(db: Database):
     assert rows == []
 
 
+async def test_dropped_task_returns_to_available(db: Database):
+    """Отказ должен возвращать задание в список, иначе слот залипает."""
+    await add_performer(db, 507, products=["debit"])
+    task_id = await make_task(db, slots=1)
+    assignment_id, _ = await db.claim_task(task_id, 507)
+
+    user = await db.get_user(507)
+    assert await db.open_tasks_for_user(user) == []
+
+    await db.set_assignment_status(assignment_id, CANCELLED)
+
+    rows = await db.open_tasks_for_user(user)
+    assert [row["id"] for row in rows] == [task_id]
+
+
 async def test_open_tasks_for_user_hides_closed(db: Database):
     await add_performer(db, 506, products=["debit"])
     task_id = await make_task(db)

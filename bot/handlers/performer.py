@@ -17,6 +17,7 @@ from ..catalog import check_by_code
 from ..config import Config
 from ..db import (
     ACCEPTED,
+    CANCELLED,
     CLAIMED,
     PAID,
     REWORK,
@@ -361,6 +362,56 @@ async def resend_link(
         return
 
     await send_task_link(callback.message, task, config)
+
+
+@router.callback_query(AssignCB.filter(F.action == "drop"))
+async def drop_ask(
+    callback: CallbackQuery, callback_data: AssignCB, db: Database
+) -> None:
+    """Отказ от задания. Без него слот залипает навсегда."""
+    await callback.answer()
+    if callback.message is None or callback.from_user is None:
+        return
+
+    assignment = await db.get_assignment(callback_data.assignment_id)
+    if assignment is None or assignment["user_id"] != callback.from_user.id:
+        await callback.message.answer(texts.TASK_GONE)
+        return
+    if assignment["status"] not in (CLAIMED, REWORK):
+        await callback.message.answer(texts.DROP_TOO_LATE)
+        return
+
+    await callback.message.answer(
+        texts.DROP_CONFIRM.format(title=escape(assignment["title"])),
+        reply_markup=keyboards.confirm_drop(assignment["id"]),
+    )
+
+
+@router.callback_query(AssignCB.filter(F.action == "drop_no"))
+async def drop_cancel(callback: CallbackQuery) -> None:
+    await callback.answer()
+    if callback.message is not None:
+        await callback.message.edit_text(texts.DROP_CANCELLED)
+
+
+@router.callback_query(AssignCB.filter(F.action == "drop_yes"))
+async def drop_confirm(
+    callback: CallbackQuery, callback_data: AssignCB, db: Database
+) -> None:
+    await callback.answer()
+    if callback.message is None or callback.from_user is None:
+        return
+
+    assignment = await db.get_assignment(callback_data.assignment_id)
+    if assignment is None or assignment["user_id"] != callback.from_user.id:
+        await callback.message.edit_text(texts.TASK_GONE)
+        return
+    if assignment["status"] not in (CLAIMED, REWORK):
+        await callback.message.edit_text(texts.DROP_TOO_LATE)
+        return
+
+    await db.set_assignment_status(callback_data.assignment_id, CANCELLED)
+    await callback.message.edit_text(texts.DROP_DONE)
 
 
 @router.callback_query(AssignCB.filter(F.action == "report"))

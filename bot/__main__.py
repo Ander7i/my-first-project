@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -17,6 +18,7 @@ from . import catalog
 from .config import Config, load_config
 from .db import Database
 from .handlers import build_router
+from .reminders import run_reminders
 from .utils import contact_url
 
 log = logging.getLogger("bot")
@@ -102,9 +104,20 @@ async def main() -> None:
         dispatcher["db"] = db
         dispatcher.include_router(build_router())
 
-        # Сбрасываем накопившиеся апдейты, чтобы бот не отвечал на старые сообщения.
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dispatcher.start_polling(bot, allowed_updates=["message", "callback_query"])
+        # Напоминания живут отдельной задачей рядом с polling.
+        reminders_task = asyncio.create_task(run_reminders(bot, db, config))
+
+        try:
+            # Сбрасываем накопившиеся апдейты, чтобы бот не отвечал на старые.
+            await bot.delete_webhook(drop_pending_updates=True)
+            await dispatcher.start_polling(
+                bot, allowed_updates=["message", "callback_query"]
+            )
+        finally:
+            reminders_task.cancel()
+            # Ждём отмену: иначе задача оборвётся посреди запроса к базе.
+            with suppress(asyncio.CancelledError):
+                await reminders_task
     finally:
         await db.close()
         await bot.session.close()

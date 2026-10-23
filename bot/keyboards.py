@@ -130,6 +130,24 @@ def my_tasks(rows: list) -> InlineKeyboardMarkup:
                 text=f"📨 Сдать отчёт: {row['title'][:24]}",
                 callback_data=AssignCB(action="report", assignment_id=row["id"]),
             )
+            kb.button(
+                text=f"{texts.BTN_DROP}: {row['title'][:24]}",
+                callback_data=AssignCB(action="drop", assignment_id=row["id"]),
+            )
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def confirm_drop(assignment_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(
+        text="✖️ Да, отказаться",
+        callback_data=AssignCB(action="drop_yes", assignment_id=assignment_id),
+    )
+    kb.button(
+        text="Оставить за мной",
+        callback_data=AssignCB(action="drop_no", assignment_id=assignment_id),
+    )
     kb.adjust(1)
     return kb.as_markup()
 

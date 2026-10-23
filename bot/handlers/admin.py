@@ -15,6 +15,13 @@ from .. import keyboards, texts
 from ..callbacks import AssignCB, NewTaskCB, TaskCB
 from ..catalog import PRODUCTS, check_by_code, checks_for_product, product_by_code
 from ..config import Config
+from ..dates import (
+    days_until,
+    format_due_date,
+    is_sane_due_date,
+    parse_due_date,
+    to_iso,
+)
 from ..db import ACCEPTED, PAID, REWORK, SUBMITTED, Database
 from ..states import Announce, NewTask, Rework
 from ..utils import (
@@ -154,8 +161,21 @@ async def task_payment(message: Message, state: FSMContext) -> None:
 
 @router.message(NewTask.deadline, F.text)
 async def task_deadline(message: Message, state: FSMContext) -> None:
-    await state.update_data(deadline=(message.text or "").strip()[:60])
+    due = parse_due_date(message.text or "")
+    if due is None:
+        await message.answer(texts.NEW_TASK_DEADLINE_INVALID)
+        return
+    if not is_sane_due_date(due):
+        await message.answer(texts.NEW_TASK_DEADLINE_PAST)
+        return
+
+    await state.update_data(deadline=format_due_date(due), due_date=to_iso(due))
     await state.set_state(NewTask.slots)
+    await message.answer(
+        texts.NEW_TASK_DEADLINE_SET.format(
+            deadline=format_due_date(due), days=days_until(due)
+        )
+    )
     await message.answer(texts.NEW_TASK_SLOTS)
 
 

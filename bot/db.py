@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     remote     INTEGER NOT NULL DEFAULT 0,
     payment    INTEGER NOT NULL,
     deadline   TEXT    NOT NULL,
+    due_date   TEXT    NOT NULL DEFAULT '',
     slots      INTEGER NOT NULL DEFAULT 1,
     notes      TEXT    NOT NULL DEFAULT '',
     link       TEXT    NOT NULL DEFAULT '',
@@ -58,6 +59,13 @@ CREATE TABLE IF NOT EXISTS assignments (
     decided_at   TEXT,
     paid_at      TEXT,
     UNIQUE (task_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS reminders (
+    assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    kind          TEXT    NOT NULL,
+    sent_at       TEXT    NOT NULL,
+    PRIMARY KEY (assignment_id, kind)
 );
 
 CREATE TABLE IF NOT EXISTS report_items (
@@ -92,6 +100,7 @@ MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("tasks", "remote", "INTEGER NOT NULL DEFAULT 0"),
     ("tasks", "notes", "TEXT NOT NULL DEFAULT ''"),
     ("tasks", "link", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "due_date", "TEXT NOT NULL DEFAULT ''"),
     ("assignments", "ack_at", "TEXT"),
 )
 
@@ -290,9 +299,9 @@ class Database:
         cur = await self.conn.execute(
             """
             INSERT INTO tasks (check_code, bank, title, city, city_key, remote,
-                               payment, deadline, slots, notes, link,
+                               payment, deadline, due_date, slots, notes, link,
                                created_by, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["check_code"],
@@ -303,6 +312,7 @@ class Database:
                 int(data.get("remote", False)),
                 data["payment"],
                 data["deadline"],
+                data.get("due_date", ""),
                 data["slots"],
                 data.get("notes", ""),
                 data.get("link", ""),
@@ -564,6 +574,61 @@ class Database:
         await self.conn.execute(
             f"UPDATE assignments SET {', '.join(sets)} WHERE id = ?", params
         )
+
+    # ------------------------------------------------------------ напоминания
+
+    async def assignments_in_work(self) -> list[aiosqlite.Row]:
+        """Взятые и недосданные задания, у которых есть машинная дата срока."""
+        async with self.conn.execute(
+            f"""
+            SELECT a.id, a.user_id, a.status, t.id AS task_id, t.title,
+                   t.due_date, t.check_code, t.bank, t.payment
+              FROM assignments a
+              JOIN tasks t ON t.id = a.task_id
+             WHERE a.status IN ('{CLAIMED}', '{REWORK}')
+               AND t.due_date != ''
+            """
+        ) as cur:
+            return list(await cur.fetchall())
+
+    async def assignments_for_followup(self) -> list[aiosqlite.Row]:
+        """Принятые и оплаченные задания — для напоминаний после сдачи.
+
+        Нужны там, где у человека остаётся дело после отчёта: закрыть ИП и
+        счёт. Дата отсчитывается от момента приёмки.
+        """
+        async with self.conn.execute(
+            f"""
+            SELECT a.id, a.user_id, a.status, a.decided_at, t.title,
+                   t.check_code, t.bank
+              FROM assignments a
+              JOIN tasks t ON t.id = a.task_id
+             WHERE a.status IN ('{ACCEPTED}', '{PAID}')
+               AND a.decided_at IS NOT NULL
+            """
+        ) as cur:
+            return list(await cur.fetchall())
+
+    async def reminder_sent(self, assignment_id: int, kind: str) -> bool:
+        async with self.conn.execute(
+            "SELECT 1 FROM reminders WHERE assignment_id = ? AND kind = ?",
+            (assignment_id, kind),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    async def mark_reminder(self, assignment_id: int, kind: str) -> bool:
+        """Отмечает напоминание отправленным.
+
+        Возвращает False, если оно уже было отмечено — тогда отправлять
+        второй раз не нужно. Запись делается до отправки, поэтому даже
+        двойной запуск бота не пришлёт человеку дубль.
+        """
+        cur = await self.conn.execute(
+            "INSERT OR IGNORE INTO reminders (assignment_id, kind, sent_at) "
+            "VALUES (?, ?, ?)",
+            (assignment_id, kind, _now()),
+        )
+        return cur.rowcount > 0
 
     # ----------------------------------------------------------- report items
 
