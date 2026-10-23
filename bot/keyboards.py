@@ -118,12 +118,16 @@ def acknowledge(task_id: int) -> InlineKeyboardMarkup:
 
 
 def my_tasks(rows: list) -> InlineKeyboardMarkup:
-    """Кнопка «Сдать отчёт» для каждого задания в работе или на доработке."""
+    """Для каждого задания в работе — ссылка и сдача отчёта."""
     kb = InlineKeyboardBuilder()
     for row in rows:
         if row["status"] in ("claimed", "rework"):
             kb.button(
-                text=f"📨 Сдать отчёт: {row['title'][:28]}",
+                text=f"🔗 Ссылка: {row['title'][:26]}",
+                callback_data=AssignCB(action="link", assignment_id=row["id"]),
+            )
+            kb.button(
+                text=f"📨 Сдать отчёт: {row['title'][:24]}",
                 callback_data=AssignCB(action="report", assignment_id=row["id"]),
             )
     kb.adjust(1)
@@ -218,6 +222,26 @@ def new_task_checks(checks: tuple[CheckType, ...]) -> InlineKeyboardMarkup:
             callback_data=NewTaskCB(action="check", code=check.code),
         )
     kb.button(text="⬅️ Назад", callback_data=NewTaskCB(action="back_products"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def task_link(url: str) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text=texts.BTN_OPEN_LINK, url=url)
+    return kb.as_markup()
+
+
+def write_manager(url: str) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text=texts.BTN_WRITE_MANAGER, url=url)
+    return kb.as_markup()
+
+
+def manual_link() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Выдам сам", callback_data=NewTaskCB(action="manual_link"))
+    kb.button(text="✖️ Отменить", callback_data=NewTaskCB(action="cancel"))
     kb.adjust(1)
     return kb.as_markup()
 

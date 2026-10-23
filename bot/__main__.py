@@ -17,6 +17,7 @@ from . import catalog
 from .config import Config, load_config
 from .db import Database
 from .handlers import build_router
+from .utils import contact_url
 
 log = logging.getLogger("bot")
 
@@ -86,6 +87,12 @@ async def main() -> None:
             log.warning(
                 "GROUP_CHAT_ID не задан — публикации в группу недоступны. "
                 "Добавьте бота в группу админом и напишите там /chatid."
+            )
+        if contact_url(config.support_contact) is None:
+            log.warning(
+                "SUPPORT_CONTACT не задан или не похож на ник или ссылку. "
+                "Заданиям без своей ссылки бот не сможет подсказать, к кому "
+                "обратиться за ней."
             )
 
         await setup_commands(bot, config)

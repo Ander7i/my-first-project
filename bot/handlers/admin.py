@@ -19,6 +19,7 @@ from ..db import ACCEPTED, PAID, REWORK, SUBMITTED, Database
 from ..states import Announce, NewTask, Rework
 from ..utils import (
     broadcast,
+    is_valid_link,
     performer_name,
     send_safe,
     task_card,
@@ -165,8 +166,35 @@ async def task_slots(message: Message, state: FSMContext) -> None:
         await message.answer(texts.NEW_TASK_NUMBER_INVALID)
         return
     await state.update_data(slots=int(raw))
+    await state.set_state(NewTask.link)
+    await message.answer(texts.NEW_TASK_LINK, reply_markup=keyboards.manual_link())
+
+
+@router.message(NewTask.link, F.text)
+async def task_link(message: Message, state: FSMContext) -> None:
+    link = (message.text or "").strip()
+    if not is_valid_link(link):
+        await message.answer(
+            texts.NEW_TASK_LINK_INVALID, reply_markup=keyboards.manual_link()
+        )
+        return
+    await state.update_data(link=link)
     await state.set_state(NewTask.notes)
+    await message.answer(texts.NEW_TASK_LINK_SET)
     await message.answer(texts.NEW_TASK_NOTES, reply_markup=keyboards.skip_notes())
+
+
+@router.callback_query(NewTask.link, NewTaskCB.filter(F.action == "manual_link"))
+async def task_link_manual(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    if callback.message is None:
+        return
+    await state.update_data(link="")
+    await state.set_state(NewTask.notes)
+    await callback.message.edit_text(texts.NEW_TASK_LINK_MANUAL)
+    await callback.message.answer(
+        texts.NEW_TASK_NOTES, reply_markup=keyboards.skip_notes()
+    )
 
 
 @router.message(NewTask.notes, F.text)
@@ -210,6 +238,9 @@ async def _show_task_preview(message: Message, state: FSMContext, db: Database) 
         texts.NEW_TASK_PREVIEW.format(
             card=task_card(_preview_row(data)),
             notes=notes,
+            link_mode=(
+                texts.LINK_MODE_AUTO if data.get("link") else texts.LINK_MODE_MANUAL
+            ),
             matches=len(matches),
         ),
         reply_markup=keyboards.confirm_new_task(),

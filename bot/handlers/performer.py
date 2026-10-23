@@ -26,7 +26,9 @@ from ..db import (
 from ..states import Report
 from ..utils import (
     bullets,
+    contact_url,
     format_answers,
+    is_valid_link,
     numbered,
     performer_name,
     render_check,
@@ -130,7 +132,7 @@ async def view_task(
 
 @router.callback_query(TaskCB.filter(F.action == "claim"))
 async def claim(
-    callback: CallbackQuery, callback_data: TaskCB, db: Database
+    callback: CallbackQuery, callback_data: TaskCB, db: Database, config: Config
 ) -> None:
     if callback.from_user is None or callback.message is None:
         await callback.answer()
@@ -170,12 +172,12 @@ async def claim(
         )
         return
 
-    await _assign(callback, db, task["id"], acknowledged=False)
+    await _assign(callback, db, config, task["id"], acknowledged=False)
 
 
 @router.callback_query(AckCB.filter())
 async def on_ack(
-    callback: CallbackQuery, callback_data: AckCB, db: Database
+    callback: CallbackQuery, callback_data: AckCB, db: Database, config: Config
 ) -> None:
     if callback.message is None:
         await callback.answer()
@@ -186,11 +188,16 @@ async def on_ack(
         await callback.message.edit_text(texts.ACK_DECLINED)
         return
 
-    await _assign(callback, db, callback_data.task_id, acknowledged=True)
+    await _assign(callback, db, config, callback_data.task_id, acknowledged=True)
 
 
 async def _assign(
-    callback: CallbackQuery, db: Database, task_id: int, *, acknowledged: bool
+    callback: CallbackQuery,
+    db: Database,
+    config: Config,
+    task_id: int,
+    *,
+    acknowledged: bool,
 ) -> None:
     """Занимает слот и присылает исполнителю полную инструкцию."""
     if callback.from_user is None or callback.message is None:
@@ -261,6 +268,41 @@ async def _assign(
             attachments=attachments,
         )
     )
+    # Ссылка идёт отдельным сообщением последней: её человек будет искать
+    # в переписке, и отдельное сообщение проще найти, чем абзац внутри
+    # длинной инструкции.
+    await send_task_link(callback.message, task, config)
+
+
+async def send_task_link(message: Message, task, config: Config) -> None:
+    """Выдаёт ссылку задания либо отправляет человека к администратору."""
+    link = (task["link"] or "").strip()
+
+    if link and is_valid_link(link):
+        await message.answer(
+            texts.TASK_LINK_READY.format(link=escape(link)),
+            reply_markup=keyboards.task_link(link),
+        )
+        return
+
+    if link:
+        # Ссылка в базе есть, но негодная: кнопку из неё строить нельзя,
+        # Telegram отклонит сообщение. Отдаём текстом и говорим админам.
+        log.warning("Задание %s: негодная ссылка в базе", task["id"])
+        await message.answer(texts.TASK_LINK_READY.format(link=escape(link)))
+        return
+
+    url = contact_url(config.support_contact)
+    if url is None:
+        await message.answer(texts.TASK_LINK_NO_CONTACT.format(task_id=task["id"]))
+        return
+
+    await message.answer(
+        texts.TASK_LINK_FROM_MANAGER.format(
+            contact=escape(config.support_contact), task_id=task["id"]
+        ),
+        reply_markup=keyboards.write_manager(url),
+    )
 
 
 # ---------------------------------------------------------------- мои задания
@@ -294,6 +336,31 @@ async def cmd_tasks(message: Message, state: FSMContext, db: Database) -> None:
 
 
 # ----------------------------------------------------------------- сдача отчёта
+
+
+@router.callback_query(AssignCB.filter(F.action == "link"))
+async def resend_link(
+    callback: CallbackQuery,
+    callback_data: AssignCB,
+    db: Database,
+    config: Config,
+) -> None:
+    """Повторная выдача ссылки: сообщение легко теряется в переписке."""
+    await callback.answer()
+    if callback.message is None or callback.from_user is None:
+        return
+
+    assignment = await db.get_assignment(callback_data.assignment_id)
+    if assignment is None or assignment["user_id"] != callback.from_user.id:
+        await callback.message.answer(texts.TASK_GONE)
+        return
+
+    task = await db.get_task(assignment["task_id"])
+    if task is None:
+        await callback.message.answer(texts.TASK_GONE)
+        return
+
+    await send_task_link(callback.message, task, config)
 
 
 @router.callback_query(AssignCB.filter(F.action == "report"))

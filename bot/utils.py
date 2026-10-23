@@ -36,6 +36,40 @@ def numbered(items: Sequence[str]) -> str:
     return "\n".join(f"{i}. {escape(item)}" for i, item in enumerate(items, 1))
 
 
+def contact_url(support_contact: str) -> str | None:
+    """Ссылка на личку администратора из SUPPORT_CONTACT.
+
+    Принимает «@ник», «ник» и готовую ссылку. Возвращает None, если
+    контакт не задан или на кнопку его не повесить.
+    """
+    value = (support_contact or "").strip()
+    if not value:
+        return None
+    if value.startswith(("https://", "http://", "tg://")):
+        return value
+    handle = value.lstrip("@")
+    # В никах Telegram только буквы, цифры и подчёркивания.
+    if handle and all(ch.isascii() and (ch.isalnum() or ch == "_") for ch in handle):
+        return f"https://t.me/{handle}"
+    return None
+
+
+def is_valid_link(value: str) -> bool:
+    """Годится ли строка для URL-кнопки Telegram.
+
+    Проверять обязательно: Telegram отклоняет всё сообщение целиком, если
+    в кнопке негодный URL. Одна опечатка в ссылке иначе сорвала бы выдачу
+    задания всем исполнителям сразу.
+    """
+    value = (value or "").strip()
+    if not value.startswith(("https://", "http://")):
+        return False
+    rest = value.split("://", 1)[1]
+    host = rest.split("/", 1)[0].split("?", 1)[0]
+    # Должен быть домен с точкой и без пробелов.
+    return "." in host and " " not in value and len(host) > 3
+
+
 def performer_name(row: Any) -> str:
     """Имя исполнителя для админских карточек."""
     keys = row.keys()

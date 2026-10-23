@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     deadline   TEXT    NOT NULL,
     slots      INTEGER NOT NULL DEFAULT 1,
     notes      TEXT    NOT NULL DEFAULT '',
+    link       TEXT    NOT NULL DEFAULT '',
     status     TEXT    NOT NULL DEFAULT 'open',
     created_by INTEGER NOT NULL,
     created_at TEXT    NOT NULL
@@ -90,6 +91,7 @@ MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("tasks", "city_key", "TEXT NOT NULL DEFAULT ''"),
     ("tasks", "remote", "INTEGER NOT NULL DEFAULT 0"),
     ("tasks", "notes", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "link", "TEXT NOT NULL DEFAULT ''"),
     ("assignments", "ack_at", "TEXT"),
 )
 
@@ -288,8 +290,9 @@ class Database:
         cur = await self.conn.execute(
             """
             INSERT INTO tasks (check_code, bank, title, city, city_key, remote,
-                               payment, deadline, slots, notes, created_by, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               payment, deadline, slots, notes, link,
+                               created_by, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["check_code"],
@@ -302,6 +305,7 @@ class Database:
                 data["deadline"],
                 data["slots"],
                 data.get("notes", ""),
+                data.get("link", ""),
                 created_by,
                 _now(),
             ),
@@ -494,7 +498,7 @@ class Database:
         async with self.conn.execute(
             """
             SELECT a.*, t.title, t.check_code, t.bank, t.city, t.remote,
-                   t.payment, t.deadline, t.notes,
+                   t.payment, t.deadline, t.notes, t.link,
                    u.username, u.full_name, u.contact
               FROM assignments a
               JOIN tasks t ON t.id = a.task_id

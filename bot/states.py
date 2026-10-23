@@ -24,6 +24,7 @@ class NewTask(StatesGroup):
     payment = State()
     deadline = State()
     slots = State()
+    link = State()
     notes = State()
     preview = State()
 

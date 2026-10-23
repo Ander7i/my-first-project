@@ -174,10 +174,19 @@ async def test_new_task_preview_template(db: Database):
     rendered = texts.NEW_TASK_PREVIEW.format(
         card=task_card(_preview_row(data)),
         notes=texts.TASK_NOTES.format(notes=data["notes"]),
+        link_mode=texts.LINK_MODE_AUTO,
         matches=0,
     )
     assert "{" not in rendered
     assert "Мест: 3 из 3" in rendered
+
+
+def test_link_templates():
+    assert "{" not in texts.TASK_LINK_READY.format(link="https://example.com")
+    assert "{" not in texts.TASK_LINK_FROM_MANAGER.format(
+        contact="@manager", task_id=7
+    )
+    assert "{" not in texts.TASK_LINK_NO_CONTACT.format(task_id=7)
 
 
 async def test_group_announce_template(db: Database):
