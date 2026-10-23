@@ -12,16 +12,18 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from .. import keyboards, texts
-from ..callbacks import AssignCB, SurveyCB, TaskCB
+from ..callbacks import AssignCB, NewTaskCB, TaskCB
+from ..catalog import PRODUCTS, check_by_code, checks_for_product, product_by_code
 from ..config import Config
 from ..db import ACCEPTED, PAID, REWORK, SUBMITTED, Database
 from ..states import Announce, NewTask, Rework
 from ..utils import (
     broadcast,
-    format_checklist,
     performer_name,
     send_safe,
     task_card,
+    task_location,
+    task_title,
 )
 
 router = Router(name="admin")
@@ -52,38 +54,83 @@ async def cmd_newtask(message: Message, state: FSMContext, config: Config) -> No
         await message.answer(texts.NOT_ADMIN)
         return
     await state.clear()
-    await state.set_state(NewTask.title)
-    await message.answer(texts.NEW_TASK_TITLE)
-
-
-@router.message(NewTask.title, F.text)
-async def task_title(message: Message, state: FSMContext, config: Config) -> None:
-    await state.update_data(title=(message.text or "").strip()[:120])
-    await state.set_state(NewTask.category)
+    await state.set_state(NewTask.product)
     await message.answer(
-        texts.NEW_TASK_CATEGORY,
-        reply_markup=keyboards.new_task_categories(config.categories),
+        texts.NEW_TASK_PRODUCT, reply_markup=keyboards.new_task_products(PRODUCTS)
     )
 
 
-@router.callback_query(NewTask.category, SurveyCB.filter(F.action == "newtask_cat"))
-async def task_category(
-    callback: CallbackQuery,
-    callback_data: SurveyCB,
-    state: FSMContext,
-    config: Config,
+@router.callback_query(NewTaskCB.filter(F.action == "cancel"))
+async def task_cancel(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    await state.clear()
+    if callback.message is not None:
+        await callback.message.edit_text(texts.TASK_CREATE_CANCELLED)
+
+
+@router.callback_query(NewTaskCB.filter(F.action == "back_products"))
+async def task_back_products(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    if callback.message is None:
+        return
+    await state.set_state(NewTask.product)
+    await callback.message.edit_text(
+        texts.NEW_TASK_PRODUCT, reply_markup=keyboards.new_task_products(PRODUCTS)
+    )
+
+
+@router.callback_query(NewTask.product, NewTaskCB.filter(F.action == "product"))
+async def task_product(
+    callback: CallbackQuery, callback_data: NewTaskCB, state: FSMContext
 ) -> None:
     await callback.answer()
     if callback.message is None:
         return
-    try:
-        category = config.categories[int(callback_data.value)]
-    except (ValueError, IndexError):
+
+    product = product_by_code(callback_data.code)
+    if product is None:
         return
-    await state.update_data(category=category)
+
+    await state.set_state(NewTask.check)
+    await callback.message.edit_text(
+        texts.NEW_TASK_CHECK,
+        reply_markup=keyboards.new_task_checks(checks_for_product(product.code)),
+    )
+
+
+@router.callback_query(NewTask.check, NewTaskCB.filter(F.action == "check"))
+async def task_check(
+    callback: CallbackQuery, callback_data: NewTaskCB, state: FSMContext
+) -> None:
+    await callback.answer()
+    if callback.message is None:
+        return
+
+    check = check_by_code(callback_data.code)
+    if check is None:
+        return
+
+    await state.update_data(check_code=check.code, remote=check.remote)
+    await state.set_state(NewTask.bank)
+    await callback.message.edit_text(f"Проверка: {escape(check.title)}")
+    await callback.message.answer(texts.NEW_TASK_BANK)
+
+
+@router.message(NewTask.bank, F.text)
+async def task_bank(message: Message, state: FSMContext) -> None:
+    await state.update_data(bank=(message.text or "").strip()[:60])
+    data = await state.get_data()
+
+    # Дистанционным проверкам город не нужен — не спрашиваем лишнего.
+    if data.get("remote"):
+        await state.update_data(city="")
+        await state.set_state(NewTask.payment)
+        await message.answer(texts.NEW_TASK_CITY_REMOTE)
+        await message.answer(texts.NEW_TASK_PAYMENT)
+        return
+
     await state.set_state(NewTask.city)
-    await callback.message.edit_text(f"Категория: {escape(category)}")
-    await callback.message.answer(texts.NEW_TASK_CITY)
+    await message.answer(texts.NEW_TASK_CITY)
 
 
 @router.message(NewTask.city, F.text)
@@ -118,45 +165,76 @@ async def task_slots(message: Message, state: FSMContext) -> None:
         await message.answer(texts.NEW_TASK_NUMBER_INVALID)
         return
     await state.update_data(slots=int(raw))
-    await state.set_state(NewTask.description)
-    await message.answer(texts.NEW_TASK_DESCRIPTION)
+    await state.set_state(NewTask.notes)
+    await message.answer(texts.NEW_TASK_NOTES, reply_markup=keyboards.skip_notes())
 
 
-@router.message(NewTask.description, F.text)
-async def task_description(message: Message, state: FSMContext) -> None:
-    await state.update_data(description=(message.text or "").strip()[:3000])
-    await state.set_state(NewTask.checklist)
-    await message.answer(texts.NEW_TASK_CHECKLIST)
+@router.message(NewTask.notes, F.text)
+async def task_notes(message: Message, state: FSMContext, db: Database) -> None:
+    await state.update_data(notes=(message.text or "").strip()[:3000])
+    await _show_task_preview(message, state, db)
 
 
-@router.message(NewTask.checklist, F.text)
-async def task_checklist(message: Message, state: FSMContext) -> None:
-    await state.update_data(checklist=(message.text or "").strip()[:4000])
+@router.callback_query(NewTask.notes, NewTaskCB.filter(F.action == "skip_notes"))
+async def task_skip_notes(
+    callback: CallbackQuery, state: FSMContext, db: Database
+) -> None:
+    await callback.answer()
+    if callback.message is None:
+        return
+    await state.update_data(notes="")
+    await _show_task_preview(callback.message, state, db)
+
+
+async def _show_task_preview(message: Message, state: FSMContext, db: Database) -> None:
     data = await state.get_data()
+    check = check_by_code(data["check_code"])
+    if check is None:
+        await state.clear()
+        await message.answer(texts.TASK_GONE)
+        return
+
+    data["title"] = task_title(check, data.get("bank", ""))
+    await state.update_data(title=data["title"])
     await state.set_state(NewTask.preview)
 
-    preview = texts.NEW_TASK_PREVIEW.format(
-        card=task_card(data),
-        description=escape(data.get("description", "")),
-        checklist=format_checklist(data.get("checklist", "")),
+    matches = await db.match_users(
+        check.product,
+        city=data.get("city", ""),
+        remote=bool(data.get("remote")),
+        requires_ip=check.requires_ip,
     )
-    await message.answer(preview, reply_markup=keyboards.confirm_new_task())
+    notes = texts.TASK_NOTES.format(notes=escape(data["notes"])) if data.get("notes") else ""
+
+    await message.answer(
+        texts.NEW_TASK_PREVIEW.format(
+            card=task_card(_preview_row(data)),
+            notes=notes,
+            matches=len(matches),
+        ),
+        reply_markup=keyboards.confirm_new_task(),
+    )
 
 
-@router.callback_query(NewTask.preview, TaskCB.filter(F.action == "create_cancel"))
-async def task_cancel(callback: CallbackQuery, state: FSMContext) -> None:
-    await callback.answer()
-    await state.clear()
-    if callback.message is not None:
-        await callback.message.edit_text(texts.TASK_CREATE_CANCELLED)
+def _preview_row(data: dict) -> dict:
+    """task_card читает поля как у строки из базы — отдаём совместимый словарь."""
+    return {
+        "title": data["title"],
+        "bank": data.get("bank", ""),
+        "city": data.get("city", ""),
+        "remote": int(bool(data.get("remote"))),
+        "payment": data["payment"],
+        "deadline": data["deadline"],
+        "slots": data["slots"],
+    }
 
 
 @router.callback_query(
-    NewTask.preview, TaskCB.filter(F.action.in_({"create_send", "create_only"}))
+    NewTask.preview, NewTaskCB.filter(F.action.in_({"create_send", "create_only"}))
 )
 async def task_create(
     callback: CallbackQuery,
-    callback_data: TaskCB,
+    callback_data: NewTaskCB,
     state: FSMContext,
     db: Database,
     bot: Bot,
@@ -179,9 +257,10 @@ async def task_create(
 
     sent, failed = await dispatch_task(bot, db, task_id)
     if sent == 0 and failed == 0:
+        check = check_by_code(data["check_code"])
         await callback.message.answer(
             texts.TASK_NO_MATCHES.format(
-                task_id=task_id, city=escape(data["city"]), category=escape(data["category"])
+                task_id=task_id, filters=_describe_filters(check, data)
             )
         )
     else:
@@ -190,27 +269,54 @@ async def task_create(
         )
 
 
+def _describe_filters(check, data: dict) -> str:
+    """Объясняет администратору, по каким условиям никто не нашёлся."""
+    product = product_by_code(check.product) if check else None
+    parts = [f"продукт «{product.title if product else '?'}»"]
+    if data.get("remote"):
+        parts.append("дистанционно (город не важен)")
+    else:
+        parts.append(f"город «{data.get('city', '')}»")
+    if check is not None and check.requires_ip is True:
+        parts.append("нужно действующее ИП")
+    elif check is not None and check.requires_ip is False:
+        parts.append("нужно отсутствие ИП")
+    return ", ".join(parts)
+
+
 async def dispatch_task(bot: Bot, db: Database, task_id: int) -> tuple[int, int]:
     """Рассылает задание подходящим исполнителям. Возвращает (доставлено, нет)."""
     task = await db.get_task(task_id)
     if task is None:
         return 0, 0
 
-    users = await db.match_users(task["city"], task["category"])
+    check = check_by_code(task["check_code"])
+    if check is None:
+        return 0, 0
+
+    users = await db.match_users(
+        check.product,
+        city=task["city"],
+        remote=bool(task["remote"]),
+        requires_ip=check.requires_ip,
+    )
     if not users:
         return 0, 0
 
     taken = await db.taken_slots(task_id)
     free = max(task["slots"] - taken, 0)
-    card = task_card(task, free_slots=free) + "\n" + escape(task["description"] or "")
+    card = "🆕 <b>Новое задание для вас</b>\n\n" + task_card(task, free_slots=free)
+    if task["notes"]:
+        card += texts.TASK_NOTES.format(notes=escape(task["notes"]))
+    card += f"\n⏱ {escape(check.duration)}\n\nПодробности и чек-лист — по кнопке ниже."
 
     sent = failed = 0
     for user in users:
         ok = await send_safe(
             bot,
             user["tg_id"],
-            "🆕 <b>Новое задание для вас</b>\n\n" + card,
-            reply_markup=keyboards.claim_task(task_id),
+            card,
+            reply_markup=keyboards.available_tasks([task]),
             db=db,
         )
         if ok:
@@ -246,8 +352,15 @@ async def cmd_tasklist(message: Message, db: Database, config: Config) -> None:
 
 @router.callback_query(TaskCB.filter(F.action == "send"))
 async def task_resend(
-    callback: CallbackQuery, callback_data: TaskCB, db: Database, bot: Bot
+    callback: CallbackQuery,
+    callback_data: TaskCB,
+    db: Database,
+    bot: Bot,
+    config: Config,
 ) -> None:
+    if not _is_admin(callback.from_user.id if callback.from_user else None, config):
+        await callback.answer(texts.NOT_ADMIN, show_alert=True)
+        return
     await callback.answer("Рассылаю…")
     if callback.message is None:
         return
@@ -259,8 +372,12 @@ async def task_resend(
 
 @router.callback_query(TaskCB.filter(F.action.in_({"close", "reopen"})))
 async def task_toggle(
-    callback: CallbackQuery, callback_data: TaskCB, db: Database
+    callback: CallbackQuery, callback_data: TaskCB, db: Database, config: Config
 ) -> None:
+    if not _is_admin(callback.from_user.id if callback.from_user else None, config):
+        await callback.answer(texts.NOT_ADMIN, show_alert=True)
+        return
+
     new_status = "closed" if callback_data.action == "close" else "open"
     await db.set_task_status(callback_data.task_id, new_status)
     await callback.answer("Готово")
@@ -294,6 +411,7 @@ async def cmd_reports(message: Message, db: Database, config: Config) -> None:
     for row in rows:
         await message.answer(
             f"🕓 Отчёт #{row['id']} по «{escape(row['title'])}»\n"
+            f"🏦 {escape(row['bank'] or '—')}\n"
             f"Исполнитель: {performer_name(row)}\n"
             f"💰 {row['payment']} ₽",
             reply_markup=keyboards.review_report(row["id"]),
@@ -320,14 +438,18 @@ async def accept_report(
     await db.set_assignment_status(callback_data.assignment_id, ACCEPTED)
     await callback.answer("Принято")
 
-    await send_safe(
-        bot,
-        assignment["user_id"],
-        texts.REPORT_ACCEPTED_USER.format(
-            title=escape(assignment["title"]), payment=assignment["payment"]
-        ),
-        db=db,
+    message_text = texts.REPORT_ACCEPTED_USER.format(
+        title=escape(assignment["title"]), payment=assignment["payment"]
     )
+
+    # После задания на регистрацию ИП исполнитель стал ИП — обновляем анкету,
+    # иначе ему и дальше будут приходить задания на регистрацию.
+    check = check_by_code(assignment["check_code"])
+    if check is not None and check.requires_ip is False and check.product == "ip":
+        await db.set_has_ip(assignment["user_id"], True)
+        message_text += texts.IP_REGISTERED_NOTE
+
+    await send_safe(bot, assignment["user_id"], message_text, db=db)
     if callback.message is not None:
         await callback.message.answer(
             texts.ADMIN_ACCEPTED,
@@ -491,8 +613,8 @@ async def task_to_group(
         await bot.send_message(
             config.group_chat_id,
             texts.GROUP_TASK_ANNOUNCE.format(
-                city=escape(task["city"]),
-                category=escape(task["category"]),
+                bank=escape(task["bank"] or "—"),
+                location=task_location(task),
                 payment=task["payment"],
                 deadline=escape(task["deadline"]),
                 title=escape(task["title"]),

@@ -6,7 +6,18 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from . import texts
-from .callbacks import AssignCB, ConsentCB, ReportCB, StopCB, SurveyCB, TaskCB
+from .callbacks import (
+    AckCB,
+    AssignCB,
+    CatalogCB,
+    ConsentCB,
+    NewTaskCB,
+    ReportCB,
+    StopCB,
+    SurveyCB,
+    TaskCB,
+)
+from .catalog import CheckType, Product
 
 
 def consent() -> InlineKeyboardMarkup:
@@ -17,10 +28,10 @@ def consent() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def car() -> InlineKeyboardMarkup:
+def yes_no(action: str) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.button(text="🚗 Есть", callback_data=SurveyCB(action="car", value="1"))
-    kb.button(text="🚶 Нет", callback_data=SurveyCB(action="car", value="0"))
+    kb.button(text="Да", callback_data=SurveyCB(action=action, value="1"))
+    kb.button(text="Нет", callback_data=SurveyCB(action=action, value="0"))
     kb.adjust(2)
     return kb.as_markup()
 
@@ -31,12 +42,63 @@ def skip_contact() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def categories(all_categories: tuple[str, ...], chosen: list[str]) -> InlineKeyboardMarkup:
+def products(all_products: tuple[Product, ...], chosen: list[str]) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    for index, name in enumerate(all_categories):
-        mark = "✅" if name in chosen else "☐"
-        kb.button(text=f"{mark} {name}", callback_data=SurveyCB(action="cat", value=str(index)))
-    kb.button(text="➡️ Готово", callback_data=SurveyCB(action="cat_done"))
+    for product in all_products:
+        mark = "✅" if product.code in chosen else "☐"
+        kb.button(
+            text=f"{mark} {product.title}",
+            callback_data=SurveyCB(action="product", value=product.code),
+        )
+    kb.button(text="➡️ Готово", callback_data=SurveyCB(action="products_done"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# ---------------------------------------------------------------------- каталог
+
+
+def catalog_products(all_products: tuple[Product, ...]) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for product in all_products:
+        kb.button(
+            text=product.title,
+            callback_data=CatalogCB(action="product", code=product.code),
+        )
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def catalog_checks(checks: tuple[CheckType, ...]) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for check in checks:
+        kb.button(
+            text=check.title,
+            callback_data=CatalogCB(action="check", code=check.code),
+        )
+    kb.button(text="⬅️ К продуктам", callback_data=CatalogCB(action="products"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def catalog_back(product_code: str) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️ Назад", callback_data=CatalogCB(action="product", code=product_code))
+    kb.button(text="📋 Открытые задания", callback_data=CatalogCB(action="available"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# ---------------------------------------------------------------------- задания
+
+
+def available_tasks(rows: list) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for row in rows:
+        kb.button(
+            text=f"{row['payment']} ₽ · {row['title'][:34]}",
+            callback_data=TaskCB(action="view", task_id=row["id"]),
+        )
     kb.adjust(1)
     return kb.as_markup()
 
@@ -44,6 +106,14 @@ def categories(all_categories: tuple[str, ...], chosen: list[str]) -> InlineKeyb
 def claim_task(task_id: int) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="✋ Взять задание", callback_data=TaskCB(action="claim", task_id=task_id))
+    return kb.as_markup()
+
+
+def acknowledge(task_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text=texts.ACK_CONFIRM_BUTTON, callback_data=AckCB(agree=True, task_id=task_id))
+    kb.button(text="✖️ Не беру", callback_data=AckCB(agree=False, task_id=task_id))
+    kb.adjust(1)
     return kb.as_markup()
 
 
@@ -60,9 +130,12 @@ def my_tasks(rows: list) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
+# ----------------------------------------------------------------------- отчёт
+
+
 def photos_done() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.button(text="➡️ Фото загружены", callback_data=ReportCB(action="photos_done"))
+    kb.button(text="➡️ Файлы загружены", callback_data=ReportCB(action="photos_done"))
     kb.button(text="✖️ Отменить", callback_data=ReportCB(action="cancel"))
     kb.adjust(1)
     return kb.as_markup()
@@ -82,6 +155,9 @@ def report_preview() -> InlineKeyboardMarkup:
     kb.button(text="✖️ Отменить", callback_data=ReportCB(action="cancel"))
     kb.adjust(1)
     return kb.as_markup()
+
+
+# -------------------------------------------------------------------- админские
 
 
 def review_report(assignment_id: int) -> InlineKeyboardMarkup:
@@ -122,19 +198,43 @@ def task_actions(task_id: int, status: str) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def new_task_categories(all_categories: tuple[str, ...]) -> InlineKeyboardMarkup:
+def new_task_products(all_products: tuple[Product, ...]) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    for index, name in enumerate(all_categories):
-        kb.button(text=name, callback_data=SurveyCB(action="newtask_cat", value=str(index)))
+    for product in all_products:
+        kb.button(
+            text=product.title,
+            callback_data=NewTaskCB(action="product", code=product.code),
+        )
+    kb.button(text="✖️ Отменить", callback_data=NewTaskCB(action="cancel"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def new_task_checks(checks: tuple[CheckType, ...]) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for check in checks:
+        kb.button(
+            text=check.title,
+            callback_data=NewTaskCB(action="check", code=check.code),
+        )
+    kb.button(text="⬅️ Назад", callback_data=NewTaskCB(action="back_products"))
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def skip_notes() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Без деталей", callback_data=NewTaskCB(action="skip_notes"))
+    kb.button(text="✖️ Отменить", callback_data=NewTaskCB(action="cancel"))
     kb.adjust(1)
     return kb.as_markup()
 
 
 def confirm_new_task() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.button(text="📤 Создать и разослать", callback_data=TaskCB(action="create_send", task_id=0))
-    kb.button(text="💾 Только создать", callback_data=TaskCB(action="create_only", task_id=0))
-    kb.button(text="✖️ Отменить", callback_data=TaskCB(action="create_cancel", task_id=0))
+    kb.button(text="📤 Создать и разослать", callback_data=NewTaskCB(action="create_send"))
+    kb.button(text="💾 Только создать", callback_data=NewTaskCB(action="create_only"))
+    kb.button(text="✖️ Отменить", callback_data=NewTaskCB(action="cancel"))
     kb.adjust(1)
     return kb.as_markup()
 

@@ -13,6 +13,7 @@ from aiogram.exceptions import TelegramUnauthorizedError
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
+from . import catalog
 from .config import Config, load_config
 from .db import Database
 from .handlers import build_router
@@ -21,8 +22,11 @@ log = logging.getLogger("bot")
 
 USER_COMMANDS = [
     BotCommand(command="start", description="Начать и заполнить анкету"),
+    BotCommand(command="catalog", description="Каталог проверок — что нужно делать"),
+    BotCommand(command="available", description="Открытые задания для меня"),
     BotCommand(command="tasks", description="Мои задания"),
     BotCommand(command="profile", description="Моя анкета"),
+    BotCommand(command="survey", description="Заполнить анкету заново"),
     BotCommand(command="help", description="Как это работает"),
     BotCommand(command="stop", description="Удалить мои данные"),
 ]
@@ -56,6 +60,10 @@ async def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
     )
+
+    # Каталог — источник правды о заданиях. Если в нём опечатка в коде
+    # продукта, лучше узнать это при старте, а не когда человек нажмёт кнопку.
+    catalog.validate()
 
     config = load_config()
     session = _build_session(config)

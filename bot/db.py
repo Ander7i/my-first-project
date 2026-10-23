@@ -9,35 +9,40 @@ from typing import Any
 
 import aiosqlite
 
-SCHEMA = """
+from .catalog import check_by_code
+
+TABLES = """
 CREATE TABLE IF NOT EXISTS users (
     tg_id      INTEGER PRIMARY KEY,
     username   TEXT,
     full_name  TEXT,
     city       TEXT,
-    city_key   TEXT NOT NULL DEFAULT '',
+    city_key   TEXT    NOT NULL DEFAULT '',
     age        INTEGER,
     has_car    INTEGER NOT NULL DEFAULT 0,
+    has_ip     INTEGER NOT NULL DEFAULT 0,
     contact    TEXT,
-    categories TEXT NOT NULL DEFAULT '',
+    products   TEXT    NOT NULL DEFAULT '',
     consent_at TEXT,
-    status     TEXT NOT NULL DEFAULT 'new',
-    created_at TEXT NOT NULL
+    status     TEXT    NOT NULL DEFAULT 'new',
+    created_at TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT    NOT NULL,
-    category    TEXT    NOT NULL,
-    city        TEXT    NOT NULL,
-    payment     INTEGER NOT NULL,
-    deadline    TEXT    NOT NULL,
-    slots       INTEGER NOT NULL DEFAULT 1,
-    description TEXT    NOT NULL DEFAULT '',
-    checklist   TEXT    NOT NULL DEFAULT '',
-    status      TEXT    NOT NULL DEFAULT 'open',
-    created_by  INTEGER NOT NULL,
-    created_at  TEXT    NOT NULL
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    check_code TEXT    NOT NULL,
+    bank       TEXT    NOT NULL DEFAULT '',
+    title      TEXT    NOT NULL,
+    city       TEXT    NOT NULL DEFAULT '',
+    city_key   TEXT    NOT NULL DEFAULT '',
+    remote     INTEGER NOT NULL DEFAULT 0,
+    payment    INTEGER NOT NULL,
+    deadline   TEXT    NOT NULL,
+    slots      INTEGER NOT NULL DEFAULT 1,
+    notes      TEXT    NOT NULL DEFAULT '',
+    status     TEXT    NOT NULL DEFAULT 'open',
+    created_by INTEGER NOT NULL,
+    created_at TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
@@ -46,6 +51,7 @@ CREATE TABLE IF NOT EXISTS assignments (
     user_id      INTEGER NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
     status       TEXT    NOT NULL DEFAULT 'claimed',
     note         TEXT    NOT NULL DEFAULT '',
+    ack_at       TEXT,
     claimed_at   TEXT    NOT NULL,
     submitted_at TEXT,
     decided_at   TEXT,
@@ -61,12 +67,31 @@ CREATE TABLE IF NOT EXISTS report_items (
     text          TEXT,
     position      INTEGER NOT NULL DEFAULT 0
 );
+"""
 
+# Индексы создаются ПОСЛЕ миграций: часть из них ссылается на колонки,
+# которых в старой базе ещё нет.
+INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_assignments_user ON assignments(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_assignments_task ON assignments(task_id, status);
 CREATE INDEX IF NOT EXISTS idx_report_items    ON report_items(assignment_id, position);
 CREATE INDEX IF NOT EXISTS idx_users_city      ON users(city_key, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks(status, check_code);
 """
+
+# Колонки, добавленные после первого релиза. При старте доливаются в
+# существующую базу, чтобы не терять уже собранные анкеты.
+MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("users", "has_ip", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "products", "TEXT NOT NULL DEFAULT ''"),
+    ("users", "city_key", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "check_code", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "bank", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "city_key", "TEXT NOT NULL DEFAULT ''"),
+    ("tasks", "remote", "INTEGER NOT NULL DEFAULT 0"),
+    ("tasks", "notes", "TEXT NOT NULL DEFAULT ''"),
+    ("assignments", "ack_at", "TEXT"),
+)
 
 # Статусы заявки на задание.
 CLAIMED = "claimed"
@@ -111,11 +136,31 @@ class Database:
     async def connect(self) -> None:
         # isolation_level=None — режим автокоммита: sqlite3 не открывает
         # транзакции сам, поэтому явный BEGIN IMMEDIATE в claim_task работает.
-        self._conn = await aiosqlite.connect(self._path, isolation_level=None)
-        self._conn.row_factory = aiosqlite.Row
-        await self._conn.execute("PRAGMA foreign_keys = ON")
-        await self._conn.execute("PRAGMA journal_mode = WAL")
-        await self._conn.executescript(SCHEMA)
+        conn = await aiosqlite.connect(self._path, isolation_level=None)
+        conn.row_factory = aiosqlite.Row
+        self._conn = conn
+        try:
+            await conn.execute("PRAGMA foreign_keys = ON")
+            await conn.execute("PRAGMA journal_mode = WAL")
+            await conn.executescript(TABLES)
+            await self._apply_migrations()
+            await conn.executescript(INDEXES)
+        except Exception:
+            # Рабочий поток aiosqlite не демонический: без закрытия ошибка
+            # схемы превратится в вечное зависание вместо сообщения.
+            self._conn = None
+            await conn.close()
+            raise
+
+    async def _apply_migrations(self) -> None:
+        """Доливает колонки, которых нет в уже существующей базе."""
+        for table, column, definition in MIGRATIONS:
+            async with self.conn.execute(f"PRAGMA table_info({table})") as cur:
+                existing = {row["name"] for row in await cur.fetchall()}
+            if column not in existing:
+                await self.conn.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                )
 
     async def close(self) -> None:
         if self._conn is not None:
@@ -135,7 +180,6 @@ class Database:
             """,
             (tg_id, username, full_name, _now()),
         )
-        await self.conn.commit()
 
     async def get_user(self, tg_id: int) -> aiosqlite.Row | None:
         async with self.conn.execute("SELECT * FROM users WHERE tg_id = ?", (tg_id,)) as cur:
@@ -145,7 +189,6 @@ class Database:
         await self.conn.execute(
             "UPDATE users SET consent_at = ? WHERE tg_id = ?", (_now(), tg_id)
         )
-        await self.conn.commit()
 
     async def save_profile(
         self,
@@ -154,14 +197,15 @@ class Database:
         city: str,
         age: int,
         has_car: bool,
+        has_ip: bool,
         contact: str,
-        categories: list[str],
+        products: list[str],
     ) -> None:
         await self.conn.execute(
             """
             UPDATE users
-               SET city = ?, city_key = ?, age = ?, has_car = ?, contact = ?,
-                   categories = ?, status = 'active'
+               SET city = ?, city_key = ?, age = ?, has_car = ?, has_ip = ?,
+                   contact = ?, products = ?, status = 'active'
              WHERE tg_id = ?
             """,
             (
@@ -169,40 +213,63 @@ class Database:
                 normalize_city(city),
                 age,
                 int(has_car),
+                int(has_ip),
                 contact,
-                ",".join(categories),
+                ",".join(products),
                 tg_id,
             ),
         )
-        await self.conn.commit()
 
     async def set_user_status(self, tg_id: int, status: str) -> None:
         await self.conn.execute("UPDATE users SET status = ? WHERE tg_id = ?", (status, tg_id))
-        await self.conn.commit()
+
+    async def set_has_ip(self, tg_id: int, has_ip: bool) -> None:
+        """После задания на регистрацию ИП статус исполнителя меняется."""
+        await self.conn.execute(
+            "UPDATE users SET has_ip = ? WHERE tg_id = ?", (int(has_ip), tg_id)
+        )
 
     async def delete_user(self, tg_id: int) -> None:
         """Полностью удаляет данные пользователя (по команде /stop)."""
         await self.conn.execute("DELETE FROM users WHERE tg_id = ?", (tg_id,))
-        await self.conn.commit()
 
-    async def match_users(self, city: str, category: str) -> list[aiosqlite.Row]:
-        """Активные исполнители нужного города с подходящей категорией."""
-        async with self.conn.execute(
-            """
-            SELECT * FROM users
-             WHERE status = 'active'
-               AND consent_at IS NOT NULL
-               AND city_key = ?
-               AND instr(',' || categories || ',', ',' || ? || ',') > 0
-            """,
-            (normalize_city(city), category),
-        ) as cur:
+    async def match_users(
+        self,
+        product: str,
+        *,
+        city: str = "",
+        remote: bool = False,
+        requires_ip: bool | None = None,
+    ) -> list[aiosqlite.Row]:
+        """Активные исполнители, подходящие под задание.
+
+        Для дистанционных проверок город не важен. requires_ip отбирает по
+        наличию действующего ИП: True — только у кого есть, False — только у
+        кого нет, None — всем.
+        """
+        sql = [
+            "SELECT * FROM users",
+            "WHERE status = 'active'",
+            "  AND consent_at IS NOT NULL",
+            "  AND instr(',' || products || ',', ',' || ? || ',') > 0",
+        ]
+        params: list[Any] = [product]
+
+        if not remote:
+            sql.append("  AND city_key = ?")
+            params.append(normalize_city(city))
+        if requires_ip is not None:
+            sql.append("  AND has_ip = ?")
+            params.append(int(requires_ip))
+
+        async with self.conn.execute("\n".join(sql), params) as cur:
             return list(await cur.fetchall())
 
     async def stats(self) -> dict[str, int]:
         queries = {
             "users_active": "SELECT COUNT(*) FROM users WHERE status = 'active'",
             "users_total": "SELECT COUNT(*) FROM users",
+            "users_with_ip": "SELECT COUNT(*) FROM users WHERE status='active' AND has_ip=1",
             "tasks_open": "SELECT COUNT(*) FROM tasks WHERE status = 'open'",
             "reports_pending": f"SELECT COUNT(*) FROM assignments WHERE status = '{SUBMITTED}'",
             "awaiting_payout": f"SELECT COUNT(*) FROM assignments WHERE status = '{ACCEPTED}'",
@@ -217,26 +284,28 @@ class Database:
     # ------------------------------------------------------------------ tasks
 
     async def create_task(self, data: dict[str, Any], created_by: int) -> int:
+        city = data.get("city", "")
         cur = await self.conn.execute(
             """
-            INSERT INTO tasks (title, category, city, payment, deadline, slots,
-                               description, checklist, created_by, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (check_code, bank, title, city, city_key, remote,
+                               payment, deadline, slots, notes, created_by, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                data["check_code"],
+                data.get("bank", ""),
                 data["title"],
-                data["category"],
-                data["city"],
+                city,
+                normalize_city(city),
+                int(data.get("remote", False)),
                 data["payment"],
                 data["deadline"],
                 data["slots"],
-                data.get("description", ""),
-                data.get("checklist", ""),
+                data.get("notes", ""),
                 created_by,
                 _now(),
             ),
         )
-        await self.conn.commit()
         return int(cur.lastrowid)
 
     async def get_task(self, task_id: int) -> aiosqlite.Row | None:
@@ -255,7 +324,6 @@ class Database:
 
     async def set_task_status(self, task_id: int, status: str) -> None:
         await self.conn.execute("UPDATE tasks SET status = ? WHERE id = ?", (status, task_id))
-        await self.conn.commit()
 
     async def taken_slots(self, task_id: int) -> int:
         placeholders = ",".join("?" * len(ACTIVE_ASSIGNMENT_STATUSES))
@@ -265,6 +333,44 @@ class Database:
         ) as cur:
             row = await cur.fetchone()
             return row[0] if row else 0
+
+    async def open_tasks_for_user(self, user: aiosqlite.Row) -> list[aiosqlite.Row]:
+        """Открытые задания, подходящие исполнителю и ещё не взятые им.
+
+        Фильтр по продукту и ИП делается в Python: признаки берутся из
+        каталога по check_code, а не из базы.
+        """
+        async with self.conn.execute(
+            """
+            SELECT t.* FROM tasks t
+             WHERE t.status = 'open'
+               AND NOT EXISTS (
+                     SELECT 1 FROM assignments a
+                      WHERE a.task_id = t.id AND a.user_id = ? AND a.status != ?
+                   )
+             ORDER BY t.id DESC
+            """,
+            (user["tg_id"], CANCELLED),
+        ) as cur:
+            rows = list(await cur.fetchall())
+
+        user_products = {p for p in (user["products"] or "").split(",") if p}
+        user_city = user["city_key"]
+        has_ip = bool(user["has_ip"])
+
+        suitable = []
+        for row in rows:
+            check = check_by_code(row["check_code"])
+            if check is None or check.product not in user_products:
+                continue
+            if check.requires_ip is not None and check.requires_ip != has_ip:
+                continue
+            if not row["remote"] and row["city_key"] != user_city:
+                continue
+            if await self.taken_slots(row["id"]) >= row["slots"]:
+                continue
+            suitable.append(row)
+        return suitable
 
     # ------------------------------------------------------------ assignments
 
@@ -334,10 +440,17 @@ class Database:
             await self.conn.rollback()
             raise
 
+    async def set_ack(self, assignment_id: int) -> None:
+        """Фиксирует, что исполнитель подтвердил предупреждения по заданию."""
+        await self.conn.execute(
+            "UPDATE assignments SET ack_at = ? WHERE id = ?", (_now(), assignment_id)
+        )
+
     async def get_assignment(self, assignment_id: int) -> aiosqlite.Row | None:
         async with self.conn.execute(
             """
-            SELECT a.*, t.title, t.category, t.city, t.payment, t.deadline, t.checklist,
+            SELECT a.*, t.title, t.check_code, t.bank, t.city, t.remote,
+                   t.payment, t.deadline, t.notes,
                    u.username, u.full_name, u.contact
               FROM assignments a
               JOIN tasks t ON t.id = a.task_id
@@ -354,7 +467,7 @@ class Database:
         placeholders = ",".join("?" * len(statuses))
         async with self.conn.execute(
             f"""
-            SELECT a.*, t.title, t.city, t.payment, t.deadline
+            SELECT a.*, t.title, t.city, t.payment, t.deadline, t.check_code, t.bank
               FROM assignments a
               JOIN tasks t ON t.id = a.task_id
              WHERE a.user_id = ? AND a.status IN ({placeholders})
@@ -369,7 +482,8 @@ class Database:
     ) -> list[aiosqlite.Row]:
         async with self.conn.execute(
             """
-            SELECT a.*, t.title, t.city, t.payment, u.username, u.full_name
+            SELECT a.*, t.title, t.city, t.payment, t.check_code, t.bank,
+                   u.username, u.full_name
               FROM assignments a
               JOIN tasks t ON t.id = a.task_id
               JOIN users u ON u.tg_id = a.user_id
@@ -402,7 +516,6 @@ class Database:
         await self.conn.execute(
             f"UPDATE assignments SET {', '.join(sets)} WHERE id = ?", params
         )
-        await self.conn.commit()
 
     # ----------------------------------------------------------- report items
 
@@ -410,7 +523,6 @@ class Database:
         await self.conn.execute(
             "DELETE FROM report_items WHERE assignment_id = ?", (assignment_id,)
         )
-        await self.conn.commit()
 
     async def add_report_item(
         self,
@@ -428,7 +540,6 @@ class Database:
             """,
             (assignment_id, kind, file_id, text, position),
         )
-        await self.conn.commit()
 
     async def list_report_items(self, assignment_id: int) -> list[aiosqlite.Row]:
         async with self.conn.execute(

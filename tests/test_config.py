@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from bot.config import DEFAULT_CATEGORIES, load_config
+from bot.config import load_config
 
 ENV_VARS = (
     "BOT_TOKEN",
     "ADMIN_IDS",
     "GROUP_CHAT_ID",
     "DB_PATH",
-    "CATEGORIES",
+    "SUPPORT_CONTACT",
     "PROXY_URL",
     "HTTPS_PROXY",
     "https_proxy",
@@ -58,16 +58,25 @@ def test_defaults(monkeypatch):
     monkeypatch.setenv("ADMIN_IDS", "1")
     config = load_config()
     assert config.group_chat_id is None
-    assert config.categories == DEFAULT_CATEGORIES
     assert config.proxy_url is None
+    assert config.support_contact == ""
     assert config.db_path.name == "shopper.db"
 
 
-def test_custom_categories(monkeypatch):
+def test_support_contact(monkeypatch):
     monkeypatch.setenv("BOT_TOKEN", "123:abc")
     monkeypatch.setenv("ADMIN_IDS", "1")
-    monkeypatch.setenv("CATEGORIES", "Магазины, Кафе ,, АЗС ")
-    assert load_config().categories == ("Магазины", "Кафе", "АЗС")
+    monkeypatch.setenv("SUPPORT_CONTACT", " @manager ")
+    assert load_config().support_contact == "@manager"
+
+
+def test_non_numeric_group_id_is_runtime_error(monkeypatch):
+    """Иначе пользователь увидит traceback вместо подсказки про /chatid."""
+    monkeypatch.setenv("BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("ADMIN_IDS", "1")
+    monkeypatch.setenv("GROUP_CHAT_ID", "my_group")
+    with pytest.raises(RuntimeError, match="chatid"):
+        load_config()
 
 
 def test_group_chat_id_is_negative(monkeypatch):

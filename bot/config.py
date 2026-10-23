@@ -8,15 +8,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-DEFAULT_CATEGORIES = (
-    "Магазины",
-    "Кафе и рестораны",
-    "АЗС",
-    "Аптеки",
-    "Банки",
-    "Телефонные звонки",
-)
-
 
 @dataclass(frozen=True)
 class Config:
@@ -24,8 +15,8 @@ class Config:
     admin_ids: tuple[int, ...]
     group_chat_id: int | None
     db_path: Path
-    categories: tuple[str, ...]
     proxy_url: str | None
+    support_contact: str
 
     def is_admin(self, user_id: int) -> bool:
         return user_id in self.admin_ids
@@ -63,22 +54,21 @@ def load_config() -> Config:
         )
 
     raw_group = os.getenv("GROUP_CHAT_ID", "").strip()
-    group_chat_id = int(raw_group) if raw_group else None
-
-    raw_categories = os.getenv("CATEGORIES", "").strip()
-    categories = (
-        tuple(c.strip() for c in raw_categories.split(",") if c.strip())
-        if raw_categories
-        else DEFAULT_CATEGORIES
-    )
+    try:
+        group_chat_id = int(raw_group) if raw_group else None
+    except ValueError:
+        raise RuntimeError(
+            f"GROUP_CHAT_ID должен быть числом (у групп отрицательным), "
+            f"а получено: {raw_group!r}. Узнать его можно командой /chatid в группе."
+        ) from None
 
     return Config(
         token=token,
         admin_ids=admin_ids,
         group_chat_id=group_chat_id,
         db_path=Path(os.getenv("DB_PATH", "shopper.db")),
-        categories=categories,
         proxy_url=_find_proxy(),
+        support_contact=os.getenv("SUPPORT_CONTACT", "").strip(),
     )
 
 

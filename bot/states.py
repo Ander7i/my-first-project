@@ -9,21 +9,22 @@ class Survey(StatesGroup):
     city = State()
     age = State()
     car = State()
+    ip = State()
     contact = State()
-    categories = State()
+    products = State()
 
 
 class NewTask(StatesGroup):
     """Создание задания администратором."""
 
-    title = State()
-    category = State()
+    product = State()
+    check = State()
+    bank = State()
     city = State()
     payment = State()
     deadline = State()
     slots = State()
-    description = State()
-    checklist = State()
+    notes = State()
     preview = State()
 
 

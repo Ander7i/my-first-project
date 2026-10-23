@@ -1,4 +1,4 @@
-"""Вспомогательные функции: карточки, рассылка, разбор чек-листа."""
+"""Вспомогательные функции: карточки, рассылка, пригодность заданий."""
 
 from __future__ import annotations
 
@@ -17,12 +17,23 @@ from aiogram.exceptions import (
 from aiogram.types import InlineKeyboardMarkup
 
 from . import texts
-from .db import Database
+from .catalog import CheckType, check_by_code, product_by_code
+from .db import Database, normalize_city
 
 log = logging.getLogger(__name__)
 
 # Пауза между сообщениями при рассылке: Telegram ограничивает ~30 сообщений в секунду.
 BROADCAST_DELAY = 0.05
+
+
+def bullets(items: Sequence[str]) -> str:
+    return "\n".join(f"• {escape(item)}" for item in items) if items else "• —"
+
+
+def numbered(items: Sequence[str]) -> str:
+    if not items:
+        return "—"
+    return "\n".join(f"{i}. {escape(item)}" for i, item in enumerate(items, 1))
 
 
 def performer_name(row: Any) -> str:
@@ -38,25 +49,39 @@ def performer_name(row: Any) -> str:
 
 def profile_card(row: Any) -> str:
     """Анкета исполнителя — её видит и сам исполнитель, и администратор."""
-    cats = row["categories"] or ""
-    cat_list = ", ".join(c for c in cats.split(",") if c) or "не выбраны"
+    codes = [c for c in (row["products"] or "").split(",") if c]
+    titles = []
+    for code in codes:
+        product = product_by_code(code)
+        titles.append(product.title if product else code)
     lines = [
         f"📍 Город: <b>{escape(row['city'] or '—')}</b>",
         f"🎂 Возраст: <b>{row['age'] or '—'}</b>",
         f"🚗 Авто: <b>{'есть' if row['has_car'] else 'нет'}</b>",
-        f"🏷 Категории: {escape(cat_list)}",
+        f"🧾 Действующее ИП: <b>{'есть' if row['has_ip'] else 'нет'}</b>",
+        f"🏦 Продукты: {escape(', '.join(titles)) if titles else 'не выбраны'}",
     ]
     if row["contact"]:
         lines.append(f"📞 Связь: {escape(row['contact'])}")
     return "\n".join(lines) + "\n"
 
 
+def task_title(check: CheckType, bank: str) -> str:
+    return f"{check.title} — {bank}" if bank else check.title
+
+
+def task_location(task: Any) -> str:
+    if task["remote"]:
+        return texts.CHECK_REMOTE
+    return f"📍 {escape(task['city'] or '—')}"
+
+
 def task_card(task: Any, free_slots: int | None = None) -> str:
     free = task["slots"] if free_slots is None else free_slots
     return texts.TASK_CARD.format(
         title=escape(task["title"]),
-        city=escape(task["city"]),
-        category=escape(task["category"]),
+        bank=escape(task["bank"] or "—"),
+        location=task_location(task),
         payment=task["payment"],
         deadline=escape(task["deadline"]),
         free=free,
@@ -64,16 +89,66 @@ def task_card(task: Any, free_slots: int | None = None) -> str:
     )
 
 
-def parse_checklist(raw: str) -> list[str]:
-    """Чек-лист хранится построчно; пустые строки игнорируем."""
-    return [line.strip() for line in (raw or "").splitlines() if line.strip()]
+def render_check(check: CheckType) -> str:
+    """Полная карточка вида проверки для каталога."""
+    product = product_by_code(check.product)
+    location = texts.CHECK_REMOTE if check.remote else texts.CHECK_ONSITE
+    if check.requires_ip is True:
+        location += "\n" + texts.CHECK_NEEDS_IP
+    elif check.requires_ip is False:
+        location += "\n" + texts.CHECK_NEEDS_NO_IP
+
+    warnings = (
+        texts.CHECK_WARNINGS_BLOCK.format(items=bullets(check.warnings))
+        if check.warnings
+        else ""
+    )
+    attachments = (
+        texts.CHECK_ATTACHMENTS_BLOCK.format(items=bullets(check.attachments))
+        if check.attachments
+        else ""
+    )
+
+    card = texts.CHECK_CARD.format(
+        title=escape(check.title),
+        product=escape(product.title if product else check.product),
+        duration=escape(check.duration),
+        location=location,
+        summary=escape(check.summary),
+        steps=numbered(check.steps),
+        requirements=bullets(check.requirements),
+        warnings=warnings,
+        checklist=numbered(check.checklist),
+        attachments=attachments,
+    )
+    if check.needs_ack:
+        card += texts.CHECK_NEEDS_ACK
+    return card
 
 
-def format_checklist(raw: str) -> str:
-    items = parse_checklist(raw)
-    if not items:
-        return "— (свободная форма)"
-    return "\n".join(f"{i}. {escape(item)}" for i, item in enumerate(items, 1))
+def unsuitable_reason(user: Any, task: Any) -> str | None:
+    """Почему задание не подходит исполнителю. None — подходит.
+
+    Проверяется при взятии задания, а не только при рассылке: ссылку на
+    задание могут переслать, да и анкета человека могла поменяться.
+    """
+    check = check_by_code(task["check_code"])
+    if check is None:
+        return texts.TASK_GONE
+
+    products = {p for p in (user["products"] or "").split(",") if p}
+    if check.product not in products:
+        return texts.REASON_PRODUCT
+
+    if check.requires_ip is True and not user["has_ip"]:
+        return texts.REASON_NEEDS_IP
+    if check.requires_ip is False and user["has_ip"]:
+        return texts.REASON_NEEDS_NO_IP
+
+    if not task["remote"] and task["city_key"] != normalize_city(user["city"] or ""):
+        return texts.REASON_CITY
+
+    return None
 
 
 def format_answers(items: Sequence[Any]) -> str:

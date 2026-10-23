@@ -1,4 +1,4 @@
-"""Сторона исполнителя: взять задание, сдать отчёт."""
+"""Сторона исполнителя: подходящие задания, взятие, сдача отчёта."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InputMediaPhoto, Message
 
 from .. import keyboards, texts
-from ..callbacks import AssignCB, ReportCB, TaskCB
+from ..callbacks import AckCB, AssignCB, CatalogCB, ReportCB, TaskCB
+from ..catalog import check_by_code
 from ..config import Config
 from ..db import (
     ACCEPTED,
@@ -24,10 +25,14 @@ from ..db import (
 )
 from ..states import Report
 from ..utils import (
+    bullets,
     format_answers,
-    format_checklist,
-    parse_checklist,
+    numbered,
     performer_name,
+    render_check,
+    task_card,
+    task_location,
+    unsuitable_reason,
 )
 
 router = Router(name="performer")
@@ -40,17 +45,218 @@ MEDIA_GROUP_LIMIT = 10
 MAX_PHOTOS = 20
 
 
-@router.message(Command("tasks"))
-async def cmd_tasks(message: Message, db: Database) -> None:
+async def _active_user(message: Message, db: Database):
+    """Возвращает заполнившего анкету пользователя либо None с подсказкой."""
     if message.from_user is None:
-        return
+        return None
     user = await db.get_user(message.from_user.id)
     if user is None or user["status"] != "active":
         await message.answer(texts.NEED_SURVEY)
+        return None
+    return user
+
+
+# -------------------------------------------------------------- список заданий
+
+
+@router.message(Command("available"))
+async def cmd_available(message: Message, state: FSMContext, db: Database) -> None:
+    await state.clear()
+    user = await _active_user(message, db)
+    if user is None:
+        return
+    await _send_available(message, db, user)
+
+
+@router.callback_query(CatalogCB.filter(F.action == "available"))
+async def cb_available(callback: CallbackQuery, db: Database) -> None:
+    await callback.answer()
+    if callback.message is None or callback.from_user is None:
+        return
+    user = await db.get_user(callback.from_user.id)
+    if user is None or user["status"] != "active":
+        await callback.message.answer(texts.NEED_SURVEY)
+        return
+    await _send_available(callback.message, db, user)
+
+
+async def _send_available(message: Message, db: Database, user) -> None:
+    rows = await db.open_tasks_for_user(user)
+    if not rows:
+        await message.answer(texts.AVAILABLE_EMPTY)
+        return
+    await message.answer(
+        texts.AVAILABLE_HEADER, reply_markup=keyboards.available_tasks(rows)
+    )
+
+
+@router.callback_query(TaskCB.filter(F.action == "view"))
+async def view_task(
+    callback: CallbackQuery, callback_data: TaskCB, db: Database
+) -> None:
+    await callback.answer()
+    if callback.message is None or callback.from_user is None:
+        return
+
+    user = await db.get_user(callback.from_user.id)
+    task = await db.get_task(callback_data.task_id)
+    if user is None or task is None:
+        await callback.message.answer(texts.TASK_GONE)
+        return
+
+    check = check_by_code(task["check_code"])
+    if check is None:
+        await callback.message.answer(texts.TASK_GONE)
+        return
+
+    reason = unsuitable_reason(user, task)
+    if reason is not None:
+        await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
+        return
+
+    taken = await db.taken_slots(task["id"])
+    free = max(task["slots"] - taken, 0)
+    notes = texts.TASK_NOTES.format(notes=escape(task["notes"])) if task["notes"] else ""
+
+    await callback.message.answer(
+        task_card(task, free_slots=free) + notes + "\n" + render_check(check),
+        reply_markup=keyboards.claim_task(task["id"]),
+    )
+
+
+# ------------------------------------------------------------ взятие задания
+
+
+@router.callback_query(TaskCB.filter(F.action == "claim"))
+async def claim(
+    callback: CallbackQuery, callback_data: TaskCB, db: Database
+) -> None:
+    if callback.from_user is None or callback.message is None:
+        await callback.answer()
+        return
+
+    user = await db.get_user(callback.from_user.id)
+    if user is None or user["status"] != "active":
+        await callback.answer(texts.NEED_SURVEY, show_alert=True)
+        return
+
+    task = await db.get_task(callback_data.task_id)
+    if task is None:
+        await callback.answer(texts.TASK_GONE, show_alert=True)
+        return
+    if task["status"] != "open":
+        await callback.answer(texts.TASK_CLOSED, show_alert=True)
+        return
+
+    reason = unsuitable_reason(user, task)
+    if reason is not None:
+        await callback.answer()
+        await callback.message.answer(texts.TASK_NOT_FOR_YOU.format(reason=reason))
+        return
+
+    check = check_by_code(task["check_code"])
+    if check is None:
+        await callback.answer(texts.TASK_GONE, show_alert=True)
+        return
+
+    # Серьёзные задания (регистрация ИП) требуют отдельного подтверждения:
+    # человек должен увидеть последствия до того, как слот будет занят.
+    if check.needs_ack:
+        await callback.answer()
+        await callback.message.answer(
+            check.ack_text, reply_markup=keyboards.acknowledge(task["id"])
+        )
+        return
+
+    await _assign(callback, db, task["id"], acknowledged=False)
+
+
+@router.callback_query(AckCB.filter())
+async def on_ack(
+    callback: CallbackQuery, callback_data: AckCB, db: Database
+) -> None:
+    if callback.message is None:
+        await callback.answer()
+        return
+
+    if not callback_data.agree:
+        await callback.answer()
+        await callback.message.edit_text(texts.ACK_DECLINED)
+        return
+
+    await _assign(callback, db, callback_data.task_id, acknowledged=True)
+
+
+async def _assign(
+    callback: CallbackQuery, db: Database, task_id: int, *, acknowledged: bool
+) -> None:
+    """Занимает слот и присылает исполнителю полную инструкцию."""
+    if callback.from_user is None or callback.message is None:
+        await callback.answer()
+        return
+
+    assignment_id, code = await db.claim_task(task_id, callback.from_user.id)
+
+    if code == "no_task":
+        await callback.answer(texts.TASK_GONE, show_alert=True)
+        return
+    if code == "closed":
+        await callback.answer(texts.TASK_CLOSED, show_alert=True)
+        return
+    if code == "no_slots":
+        await callback.answer(texts.TASK_TAKEN, show_alert=True)
+        return
+    if code == "already":
+        await callback.answer(texts.TASK_ALREADY, show_alert=True)
+        return
+
+    await callback.answer("Задание ваше!")
+    if acknowledged and assignment_id is not None:
+        await db.set_ack(assignment_id)
+
+    task = await db.get_task(task_id)
+    check = check_by_code(task["check_code"]) if task else None
+    if task is None or check is None:
+        return
+
+    # Убираем кнопку, чтобы её не нажимали повторно.
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception as exc:
+        log.debug("Не смог убрать кнопку: %s", exc)
+
+    notes = texts.TASK_NOTES.format(notes=escape(task["notes"])) if task["notes"] else ""
+    attachments = (
+        texts.CHECK_ATTACHMENTS_BLOCK.format(items=bullets(check.attachments))
+        if check.attachments
+        else ""
+    )
+    await callback.message.answer(
+        texts.TASK_CLAIMED.format(
+            title=escape(task["title"]),
+            bank=escape(task["bank"] or "—"),
+            deadline=escape(task["deadline"]),
+            payment=task["payment"],
+            steps=numbered(check.steps),
+            notes=notes,
+            checklist=numbered(check.checklist),
+            attachments=attachments,
+        )
+    )
+
+
+# ---------------------------------------------------------------- мои задания
+
+
+@router.message(Command("tasks"))
+async def cmd_tasks(message: Message, state: FSMContext, db: Database) -> None:
+    await state.clear()
+    user = await _active_user(message, db)
+    if user is None:
         return
 
     rows = await db.list_user_assignments(
-        message.from_user.id, (CLAIMED, SUBMITTED, ACCEPTED, REWORK, PAID)
+        user["tg_id"], (CLAIMED, SUBMITTED, ACCEPTED, REWORK, PAID)
     )
     if not rows:
         await message.answer(texts.NO_TASKS)
@@ -67,58 +273,6 @@ async def cmd_tasks(message: Message, db: Database) -> None:
             lines.append(f"   ♻️ {escape(row['note'])}")
 
     await message.answer("\n".join(lines), reply_markup=keyboards.my_tasks(rows))
-
-
-@router.callback_query(TaskCB.filter(F.action == "claim"))
-async def claim(
-    callback: CallbackQuery,
-    callback_data: TaskCB,
-    db: Database,
-) -> None:
-    if callback.from_user is None:
-        await callback.answer()
-        return
-
-    user = await db.get_user(callback.from_user.id)
-    if user is None or user["status"] != "active":
-        await callback.answer(texts.NEED_SURVEY, show_alert=True)
-        return
-
-    _, code = await db.claim_task(callback_data.task_id, callback.from_user.id)
-
-    if code == "no_task":
-        await callback.answer(texts.TASK_GONE, show_alert=True)
-        return
-    if code == "closed":
-        await callback.answer(texts.TASK_CLOSED, show_alert=True)
-        return
-    if code == "no_slots":
-        await callback.answer(texts.TASK_TAKEN, show_alert=True)
-        return
-    if code == "already":
-        await callback.answer(texts.TASK_ALREADY, show_alert=True)
-        return
-
-    await callback.answer("Задание ваше!")
-    task = await db.get_task(callback_data.task_id)
-    if task is None or callback.message is None:
-        return
-
-    # Убираем кнопку «Взять», чтобы её не нажимали повторно.
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception as exc:
-        log.debug("Не смог убрать кнопку: %s", exc)
-
-    await callback.message.answer(
-        texts.TASK_CLAIMED.format(
-            title=escape(task["title"]),
-            deadline=escape(task["deadline"]),
-            payment=task["payment"],
-            description=escape(task["description"] or "—"),
-            checklist=format_checklist(task["checklist"]),
-        )
-    )
 
 
 # ----------------------------------------------------------------- сдача отчёта
@@ -140,12 +294,13 @@ async def report_start(
         await callback.message.answer("Задание не найдено.")
         return
     if assignment["status"] not in (CLAIMED, REWORK):
-        await callback.message.answer(
-            "По этому заданию отчёт уже сдан — смотрите /tasks."
-        )
+        await callback.message.answer("По этому заданию отчёт уже сдан — смотрите /tasks.")
         return
 
-    questions = parse_checklist(assignment["checklist"])
+    check = check_by_code(assignment["check_code"])
+    questions = list(check.checklist) if check else []
+    attachments = list(check.attachments) if check else []
+
     await state.set_state(Report.photos)
     await state.set_data(
         {
@@ -157,7 +312,10 @@ async def report_start(
         }
     )
     await callback.message.answer(
-        texts.REPORT_START.format(title=escape(assignment["title"])),
+        texts.REPORT_START.format(
+            title=escape(assignment["title"]),
+            attachments=bullets(attachments) if attachments else "• фото или скриншоты",
+        ),
         reply_markup=keyboards.photos_done(),
     )
 
@@ -167,7 +325,7 @@ async def report_photo(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     photos: list[str] = list(data.get("photos", []))
     if len(photos) >= MAX_PHOTOS:
-        await message.answer(f"Достаточно, принято максимум {MAX_PHOTOS} фото.")
+        await message.answer(f"Достаточно, принято максимум {MAX_PHOTOS} файлов.")
         return
 
     # message.photo — список размеров одного изображения, берём самый большой.
@@ -338,7 +496,7 @@ async def report_cancel(callback: CallbackQuery, state: FSMContext) -> None:
 async def _send_report_to_admins(
     bot: Bot, db: Database, config: Config, assignment_id: int
 ) -> None:
-    """Пересылает отчёт администраторам: сначала фото, затем карточка с кнопками."""
+    """Пересылает отчёт администраторам: сначала файлы, затем карточка с кнопками."""
     assignment = await db.get_assignment(assignment_id)
     if assignment is None:
         return
@@ -348,8 +506,9 @@ async def _send_report_to_admins(
 
     card = texts.ADMIN_NEW_REPORT.format(
         title=escape(assignment["title"]),
+        bank=escape(assignment["bank"] or "—"),
         performer=performer_name(assignment),
-        city=escape(assignment["city"]),
+        location=task_location(assignment),
         payment=assignment["payment"],
         answers=format_answers(items),
     )
