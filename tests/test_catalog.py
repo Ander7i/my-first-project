@@ -40,18 +40,58 @@ def test_money_touching_checks_warn_about_handover():
         ), f"{check.code}: не сказано, что доступ никому не передаётся"
 
 
-def test_ip_registration_discloses_contributions():
+def test_ip_registration_explains_npd_correctly():
+    """Проект работает с ИП на НПД: взносов за себя нет (ч. 11 ст. 2 422-ФЗ).
+
+    Но освобождение действует только за период применения режима, поэтому
+    условие «пока применяется НПД» обязательно должно быть названо.
+    """
     check = catalog.check_by_code("ip_registration")
     assert check is not None
     assert check.needs_ack
     assert check.requires_ip is False
 
-    joined = " ".join(check.warnings) + check.ack_text
-    # Человек должен увидеть сумму, нулевой доход и порядок закрытия.
-    assert catalog.IP_FIXED_FEE in joined
-    assert "нулев" in joined.lower() or "без дохода" in joined.lower()
-    assert "закры" in joined.lower()
-    assert "деклараци" in joined.lower()
+    joined = (" ".join(check.warnings) + check.ack_text).lower()
+    assert "нпд" in joined
+    assert "422-фз" in joined
+    assert "пока применяется нпд" in joined
+    assert "мой налог" in joined
+
+
+def test_catalog_never_claims_fixed_contributions():
+    """Страховка от возврата неверного факта: у ИП на НПД взносов за себя нет."""
+    everything = " ".join(
+        " ".join(check.warnings) + check.ack_text + " ".join(check.checklist)
+        for check in catalog.CHECKS
+    ).lower()
+    for wrong in (
+        "платит фиксированные страховые взносы",
+        "взносы платятся даже",
+        "даже при нулевом доходе",
+        "сдавать даже нулевую",
+    ):
+        assert wrong not in everything, f"вернулось неверное утверждение: {wrong}"
+
+
+def test_ip_registration_keeps_non_tax_consequences():
+    """Про налоги убрано, но то, что от них не зависит, остаться должно."""
+    check = catalog.check_by_code("ip_registration")
+    joined = (" ".join(check.warnings) + check.ack_text).lower()
+    # Закрытие делает сам исполнитель, и это часть задания.
+    assert "р26001" in joined
+    assert "закры" in joined
+    # Статус ИП мешает пособию по безработице независимо от режима.
+    assert "безработ" in joined
+    # Запрет для госслужащих — из закона о госслужбе, не из налогов.
+    assert "госслужащ" in " ".join(check.requirements).lower() or "госслужащ" in joined
+
+
+def test_ip_registration_includes_closing_in_steps():
+    """Модель проекта держится на том, что человек закроет ИП через месяц."""
+    check = catalog.check_by_code("ip_registration")
+    steps = " ".join(check.steps).lower()
+    assert "закрыть" in steps
+    assert "нпд" in steps, "оформление НПД — обязательный шаг, без него будут взносы"
 
 
 def test_credit_checks_warn_about_credit_history():
