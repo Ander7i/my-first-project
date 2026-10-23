@@ -13,7 +13,6 @@ import pytest_asyncio
 from bot.db import Database
 from bot.utils import contact_url, is_valid_link
 
-
 # ------------------------------------------------------------ проверка ссылок
 
 
