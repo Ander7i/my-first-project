@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import escape
 
 from aiogram import Bot
@@ -48,7 +48,7 @@ FOLLOWUP_KIND = "followup"
 
 def is_quiet_hour(now: datetime | None = None) -> bool:
     """Ночь по местному времени — напоминания ждут утра."""
-    moment = (now or datetime.now(UTC)) + LOCAL_OFFSET
+    moment = (now or datetime.now(timezone.utc)) + LOCAL_OFFSET
     return moment.hour >= QUIET_FROM or moment.hour < QUIET_UNTIL
 
 
@@ -139,7 +139,7 @@ async def _remind_followups(bot: Bot, db: Database, config: Config) -> int:
         decided = _parse_stamp(row["decided_at"])
         if decided is None:
             continue
-        if (datetime.now(UTC) - decided).days < check.followup_days:
+        if (datetime.now(timezone.utc) - decided).days < check.followup_days:
             continue
 
         if not await db.mark_reminder(row["id"], FOLLOWUP_KIND):
@@ -161,4 +161,4 @@ def _parse_stamp(value: str | None) -> datetime | None:
         moment = datetime.fromisoformat(value)
     except ValueError:
         return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)

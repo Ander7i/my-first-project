@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 MONTHS_GENITIVE = (
     "января",
@@ -35,7 +35,7 @@ MAX_HORIZON_DAYS = 365
 
 
 def today() -> date:
-    return datetime.now(UTC).date()
+    return datetime.now(timezone.utc).date()
 
 
 def parse_due_date(raw: str, *, base: date | None = None) -> date | None:

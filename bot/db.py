@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -117,7 +117,7 @@ ACTIVE_ASSIGNMENT_STATUSES = (CLAIMED, SUBMITTED, ACCEPTED, REWORK, PAID)
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def normalize_city(value: str) -> str:
@@ -494,8 +494,8 @@ class Database:
             except ValueError:
                 return int(row["taken"]), None
             if last.tzinfo is None:
-                last = last.replace(tzinfo=UTC)
-            days = max((datetime.now(UTC) - last).days, 0)
+                last = last.replace(tzinfo=timezone.utc)
+            days = max((datetime.now(timezone.utc) - last).days, 0)
         return int(row["taken"]), days
 
     async def set_ack(self, assignment_id: int) -> None:

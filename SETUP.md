@@ -40,7 +40,20 @@
 
 ## Шаг 2. Установить бота на сервер
 
-Нужен Python 3.11 или новее. Проверить: `python3 --version`.
+Нужен Python 3.10 или новее. Проверить:
+
+```bash
+python3 --version
+```
+
+На Ubuntu 22.04 и 24.04, Debian 12 подходящий Python уже стоит. Если
+версия ниже 3.10 (бывает на Debian 11), поставьте новее:
+
+```bash
+sudo apt update && sudo apt install -y python3.11 python3.11-venv git
+```
+
+и дальше вместо `python3` используйте `python3.11`.
 
 ```bash
 git clone https://github.com/Ander7i/my-first-project.git

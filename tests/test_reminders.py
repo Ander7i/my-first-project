@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest_asyncio
 
@@ -49,7 +49,7 @@ async def add_performer(db: Database, tg_id: int, products: list[str]) -> None:
 
 
 async def make_task(db: Database, *, days_left: int, check_code="mfo_support") -> int:
-    due = datetime.now(UTC).date() + timedelta(days=days_left)
+    due = datetime.now(timezone.utc).date() + timedelta(days=days_left)
     return await db.create_task(
         {
             "check_code": check_code,
@@ -92,11 +92,11 @@ def test_overdue_only_once_on_next_day():
 
 def test_quiet_hours_cover_night_moscow_time():
     # 23:00 МСК = 20:00 UTC — тишина.
-    assert is_quiet_hour(datetime(2026, 10, 23, 20, 0, tzinfo=UTC))
+    assert is_quiet_hour(datetime(2026, 10, 23, 20, 0, tzinfo=timezone.utc))
     # 03:00 МСК = 00:00 UTC — тишина.
-    assert is_quiet_hour(datetime(2026, 10, 23, 0, 0, tzinfo=UTC))
+    assert is_quiet_hour(datetime(2026, 10, 23, 0, 0, tzinfo=timezone.utc))
     # 13:00 МСК = 10:00 UTC — можно писать.
-    assert not is_quiet_hour(datetime(2026, 10, 23, 10, 0, tzinfo=UTC))
+    assert not is_quiet_hour(datetime(2026, 10, 23, 10, 0, tzinfo=timezone.utc))
 
 
 # ------------------------------------------------------- напоминания о сроке
@@ -236,7 +236,7 @@ async def test_followup_reminds_to_close_ip(db: Database):
     await db.set_assignment_status(assignment_id, ACCEPTED)
 
     # Сдвигаем приёмку на 30 дней назад — срок напоминания (25) прошёл.
-    old = (datetime.now(UTC) - timedelta(days=30)).isoformat(timespec="seconds")
+    old = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat(timespec="seconds")
     await db.conn.execute(
         "UPDATE assignments SET decided_at = ? WHERE id = ?", (old, assignment_id)
     )
@@ -265,7 +265,7 @@ async def test_followup_sent_once(db: Database):
     task_id = await make_task(db, days_left=10, check_code="ip_registration")
     assignment_id, _ = await db.claim_task(task_id, 22)
     await db.set_assignment_status(assignment_id, ACCEPTED)
-    old = (datetime.now(UTC) - timedelta(days=40)).isoformat(timespec="seconds")
+    old = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat(timespec="seconds")
     await db.conn.execute(
         "UPDATE assignments SET decided_at = ? WHERE id = ?", (old, assignment_id)
     )
@@ -281,7 +281,7 @@ async def test_no_followup_for_checks_without_it(db: Database):
     task_id = await make_task(db, days_left=10)
     assignment_id, _ = await db.claim_task(task_id, 23)
     await db.set_assignment_status(assignment_id, ACCEPTED)
-    old = (datetime.now(UTC) - timedelta(days=60)).isoformat(timespec="seconds")
+    old = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat(timespec="seconds")
     await db.conn.execute(
         "UPDATE assignments SET decided_at = ? WHERE id = ?", (old, assignment_id)
     )
