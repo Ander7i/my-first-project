@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
@@ -58,7 +59,26 @@ async def setup_commands(bot: Bot, config: Config) -> None:
             log.warning("Меню для админа %s не установлено: %s", admin_id, exc)
 
 
+def _force_utf8_output() -> None:
+    """Переводит вывод в UTF-8.
+
+    В консоли Windows по умолчанию кодировка не UTF-8, и первая же строка
+    лога с русским текстом падает с UnicodeEncodeError — то есть бот
+    умирает на старте. На Linux и macOS вызов ничего не меняет.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            # Поток перенаправлен так, что его не перенастроить — не беда.
+            pass
+
+
 async def main() -> None:
+    _force_utf8_output()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
