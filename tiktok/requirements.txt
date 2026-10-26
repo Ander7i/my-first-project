@@ -1,0 +1,5 @@
+requests~=2.32
+python-dotenv~=1.0
+# Часовые пояса для Windows: там нет системной базы поясов, и без пакета
+# TIMEZONE=Europe/Moscow не заработает. На Linux не мешает.
+tzdata>=2024.1

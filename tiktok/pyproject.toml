@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 100
+# Как и у бота: Python 3.10 — это Ubuntu 22.04, самый частый образ дешёвых VPS.
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ISC", "RUF"]
+ignore = [
+    # Предлагает datetime.UTC вместо timezone.utc, а это Python 3.11.
+    "UP017",
+    # Правило ищет латиницу, замаскированную под кириллицу. Проект
+    # русскоязычный, поэтому срабатывает на каждом слове.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
