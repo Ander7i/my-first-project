@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Таймкод Вакансии</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Вакансии в онлайн-бизнесе: РКО, продюсирование, УБТ-трафик, личный блог, YouTube-канал под ключ, западный YouTube.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: монтажный стол — шапка-«таймлайн» с дорожками-направлениями, ниже лента вакансий-клипов */
+:root {
+  --bg: #F2F4F6;
+  --surface: #FFFFFF;
+  --ink: #15202E;
+  --muted: #5B6676;
+  --line: #D9DEE5;
+  --accent: #E8A317;
+  --accent-ink: #1A1300;
+  --t-rko: #2F7D6D;
+  --t-prod: #8A4FB8;
+  --t-ubt: #D9532B;
+  --t-blog: #C2407A;
+  --t-key: #2E6FD0;
+  --t-west: #4B5A70;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Golos Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --em-fg: var(--ink);
+  --em-hl: var(--accent);
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
+    --accent: #F0B33A; --accent-ink: #1A1300;
+    --t-rko: #4FB59F; --t-prod: #B386DB; --t-ubt: #F07A52; --t-blog: #E46FA3; --t-key: #6FA2EE; --t-west: #9AA8BC;
+    --em-fg: var(--accent); --em-hl: transparent;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
+  --accent: #F0B33A; --accent-ink: #1A1300;
+  --t-rko: #4FB59F; --t-prod: #B386DB; --t-ubt: #F07A52; --t-blog: #E46FA3; --t-key: #6FA2EE; --t-west: #9AA8BC;
+  --em-fg: var(--accent); --em-hl: transparent;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 16px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Header */
+.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }
+.logo { display: flex; align-items: center; gap: 10px; font: 700 18px/1 var(--font-display); text-decoration: none; letter-spacing: -0.01em; }
+.logo i { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--accent); color: var(--accent-ink); font-style: normal; font-size: 13px; }
+.top nav { display: flex; gap: 18px; font-size: 14px; color: var(--muted); }
+.top nav a { text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+
+/* Hero */
+.hero .wrap { padding-block: 48px 28px; display: grid; gap: 20px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 700 clamp(30px, 5.4vw, 56px)/1.05 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; max-width: 18ch; }
+h1 em { font-style: normal; color: var(--em-fg); background: linear-gradient(transparent 62%, var(--em-hl) 62%); }
+.lead { margin: 0; max-width: 60ch; color: var(--muted); font-size: 18px; }
+
+/* Timeline tracks = category filter */
+.tracks { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.ruler { display: flex; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--line); font: 500 11px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.track {
+  width: 100%; display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; cursor: pointer; text-align: left;
+}
+.track:last-child { border-bottom: 0; }
+.track:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.track[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 12%, transparent); }
+.track .name { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; min-width: 0; }
+.track .dot { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.track .bar { height: 18px; border-radius: 4px; background: color-mix(in srgb, var(--c) 10%, transparent); display: flex; gap: 3px; padding: 2px; min-width: 0; }
+.track .clip { flex: 0 1 26%; border-radius: 3px; background: var(--c); opacity: .85; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 10px/14px var(--font-mono); color: var(--surface); padding: 0 6px; }
+.track .n { font: 500 13px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Toolbar */
+.toolbar .wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-block: 18px 8px; }
+.search { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 0 12px; }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 11px 0; outline: none; }
+.search:focus-within { border-color: var(--accent); }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; }
+.reset { border: 0; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 8px 4px; }
+.count { width: 100%; font-size: 14px; color: var(--muted); }
+
+/* Jobs */
+.jobs .wrap { display: grid; gap: 12px; padding-block: 8px 56px; }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: grid; grid-template-columns: 6px minmax(0, 1fr); overflow: hidden; }
+.job .stripe { background: var(--c); }
+.job .body { padding: 18px 20px; display: grid; gap: 10px; min-width: 0; }
+.job .row1 { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; }
+.job h3 { margin: 0; font: 600 19px/1.3 var(--font-body); text-wrap: balance; }
+.salary { font: 500 15px/1.3 var(--font-mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.salary small { color: var(--muted); font-size: 12px; font-family: var(--font-body); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip.cat { border-color: transparent; background: color-mix(in srgb, var(--c) 15%, transparent); color: var(--ink); font-weight: 500; }
+.job p { margin: 0; color: var(--muted); max-width: 72ch; }
+details summary { cursor: pointer; font-size: 14px; font-weight: 500; width: fit-content; }
+details[open] summary { margin-bottom: 8px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 28px; }
+.cols h4 { margin: 0 0 4px; font: 500 12px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cols ul { margin: 0; padding-left: 18px; font-size: 15px; }
+.cols li + li { margin-top: 3px; }
+.job .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.tc { font: 500 12px/1 var(--font-mono); color: var(--muted); }
+.btn { border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
+.btn:hover { filter: brightness(1.05); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--r); }
+
+/* How + footer */
+.how { border-top: 1px solid var(--line); background: var(--surface); }
+.how .wrap { padding-block: 40px; display: grid; gap: 20px; }
+.how h2 { margin: 0; font: 700 26px/1.2 var(--font-display); letter-spacing: -0.01em; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; gap: 4px; }
+.steps li::before { content: "0" counter(s) ":00"; font: 500 13px/1 var(--font-mono); color: var(--accent); }
+.steps b { font-size: 16px; }
+.steps span { color: var(--muted); font-size: 15px; }
+footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+
+/* Dialog */
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgb(10 15 22 / .55); }
+.dlg { padding: 22px; display: grid; gap: 14px; }
+.dlg h3 { margin: 0; font: 700 19px/1.25 var(--font-display); }
+.dlg .sub { margin: -6px 0 0; color: var(--muted); font-size: 14px; }
+.field { display: grid; gap: 5px; font-size: 14px; font-weight: 500; }
+.field input, .field textarea { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); font-weight: 400; }
+.field textarea { min-height: 96px; resize: vertical; }
+.dlg .btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.done pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 500 13px/1.5 var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; max-height: 240px; overflow: auto; }
+.handle { font-family: var(--font-mono); user-select: all; }
+
+@media (max-width: 640px) {
+  .top nav { display: none; }
+  .track { grid-template-columns: minmax(0, 1fr) auto; }
+  .track .bar { display: none; }
+  .job .body { padding: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .job { animation: in .25s ease both; }
+  @keyframes in { from { transform: translateY(4px); } to { transform: none; } }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#"><i>▶</i>Таймкод</a>
+    <nav><a href="#jobs">Вакансии</a><a href="#how">Как откликнуться</a></nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Работа в онлайн-бизнесе · удалённо</span>
+    <h1>Вакансии для тех, кто делает <em>контент и продажи</em></h1>
+    <p class="lead">Продажи РКО, продюсирование экспертов, УБТ-трафик, личные блоги, YouTube-каналы под ключ и англоязычный YouTube. Выберите дорожку и откликнитесь за минуту.</p>
+    <div class="tracks" id="tracks" role="group" aria-label="Направления">
+      <div class="ruler"><span>00:00</span><span>00:15</span><span>00:30</span><span>00:45</span><span>01:00</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="toolbar" id="jobs">
+  <div class="wrap">
+    <label class="search" for="q">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Монтажёр, сценарист, продюсер…" autocomplete="off">
+    </label>
+    <select id="level" aria-label="Опыт">
+      <option value="">Любой опыт</option>
+      <option value="0">Без опыта</option>
+      <option value="1">От 1 года</option>
+      <option value="2">От 2 лет</option>
+    </select>
+    <button class="reset" id="reset" type="button">Сбросить</button>
+    <div class="count" id="count" aria-live="polite"></div>
+  </div>
+</section>
+
+<section class="jobs">
+  <div class="wrap" id="list"></div>
+</section>
+
+<section class="how" id="how">
+  <div class="wrap">
+    <h2>Как откликнуться</h2>
+    <ol class="steps">
+      <li><b>Выберите вакансию</b><span>Отфильтруйте по направлению или найдите по слову.</span></li>
+      <li><b>Заполните отклик</b><span>Имя, Telegram и пара строк о себе. Портфолио по желанию.</span></li>
+      <li><b>Отправьте в Telegram</b><span>Скопируйте готовый текст и пришлите его менеджеру <span class="handle" id="tgFoot"></span>.</span></li>
+      <li><b>Тестовое и старт</b><span>Ответим в течение дня, дадим короткое тестовое и созвонимся.</span></li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Таймкод. Вакансии в онлайн-продакшене.</span>
+    <span>Telegram: <span class="handle" id="tgFoot2"></span></span>
+  </div>
+</footer>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form class="dlg" id="form" method="dialog" novalidate>
+    <h3 id="dlgTitle">Отклик</h3>
+    <p class="sub" id="dlgSub"></p>
+    <label class="field" for="fName">Имя
+      <input id="fName" name="name" required autocomplete="name">
+    </label>
+    <label class="field" for="fTg">Telegram или телефон
+      <input id="fTg" name="tg" required placeholder="@username">
+    </label>
+    <label class="field" for="fLink">Портфолио или кейсы (ссылка)
+      <input id="fLink" name="link" placeholder="https://">
+    </label>
+    <label class="field" for="fAbout">Коротко о себе
+      <textarea id="fAbout" name="about" placeholder="Опыт, результаты, сколько часов в день готовы уделять"></textarea>
+    </label>
+    <div class="btns">
+      <button class="btn ghost" type="button" data-close>Отмена</button>
+      <button class="btn" type="submit">Сформировать отклик</button>
+    </div>
+  </form>
+  <div class="dlg done" id="done" hidden>
+    <h3>Отклик готов</h3>
+    <p class="sub">Скопируйте текст и отправьте его в Telegram: <span class="handle" id="tgDlg"></span></p>
+    <pre id="out"></pre>
+    <div class="btns">
+      <button class="btn ghost" type="button" data-close>Закрыть</button>
+      <a class="btn ghost" id="tgLink" href="#" target="_blank" rel="noopener">Открыть Telegram</a>
+      <button class="btn" type="button" id="copy">Скопировать</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+// Контакт для откликов: замените на свой Telegram
+const TG = "timecode_jobs";
+
+const CATS = {
+  rko:  { name: "РКО",                 c: "--t-rko"  },
+  prod: { name: "Продюсирование",      c: "--t-prod" },
+  ubt:  { name: "УБТ-трафик",          c: "--t-ubt"  },
+  blog: { name: "Личный блог",         c: "--t-blog" },
+  key:  { name: "Канал под ключ",      c: "--t-key"  },
+  west: { name: "Западный YouTube",    c: "--t-west" },
+};
+
+const JOBS = [
+  { cat: "rko", title: "Менеджер по продаже РКО", pay: "1 500–3 000 ₽", unit: "за открытый счёт", lvl: 0, type: "Подработка",
+    text: "Звоните предпринимателям из готовой базы, рассказываете про условия расчётного счёта и оформляете заявку на открытие.",
+    tasks: ["Холодные и тёплые звонки по базе ИП и ООО", "Подбор тарифа под оборот клиента", "Заявка в банк и сопровождение до открытия счёта"],
+    reqs: ["Грамотная речь, спокойный голос", "Компьютер и гарнитура", "От 4 часов в день"] },
+  { cat: "rko", title: "Специалист по подключению РКО и эквайринга", pay: "60 000–120 000 ₽", unit: "оклад + %", lvl: 1, type: "Полная занятость",
+    text: "Работа с входящими заявками малого бизнеса: расчётный счёт, торговый и интернет-эквайринг, зарплатный проект.",
+    tasks: ["Консультации по тарифам и комиссиям", "Сбор документов и проверка клиента", "Допродажа эквайринга и бизнес-карт"],
+    reqs: ["Опыт продаж банковских продуктов от года", "Понимание разницы ИП/ООО и УСН/НПД", "Работа в CRM"] },
+
+  { cat: "prod", title: "Продюсер онлайн-школы", pay: "от 15%", unit: "от выручки запуска", lvl: 2, type: "Проект",
+    text: "Упаковываете эксперта и проводите запуск: продукт, воронка, команда, реклама. Оплата процентом от результата.",
+    tasks: ["Распаковка эксперта и линейка продуктов", "Сборка воронки: вебинар, прогрев, продажи", "Управление командой запуска и бюджетом"],
+    reqs: ["Минимум 2 запуска с цифрами", "Знание GetCourse или аналогов", "Умение считать юнит-экономику"] },
+  { cat: "prod", title: "Ассистент продюсера", pay: "40 000–60 000 ₽", unit: "в месяц", lvl: 0, type: "Удалённо",
+    text: "Помогаете продюсеру держать запуск под контролем: задачи, дедлайны, контент-план, связь с подрядчиками.",
+    tasks: ["Ведение задач в таблице или трекере", "Контроль публикаций и сроков подрядчиков", "Сбор отчётов по охватам и заявкам"],
+    reqs: ["Пунктуальность и аккуратность", "Уверенный Google Таблицы", "Готовность учиться"] },
+
+  { cat: "ubt", title: "Специалист по УБТ-трафику", pay: "50 000–150 000 ₽", unit: "фикс + бонус за лиды", lvl: 1, type: "Удалённо",
+    text: "Приводите условно-бесплатный трафик через Shorts, Reels и TikTok: сетка аккаунтов, связки, перелив в Telegram.",
+    tasks: ["Ведение сетки аккаунтов и прогрев", "Тестирование связок и креативов", "Перелив в воронку и учёт лидов"],
+    reqs: ["Кейсы с цифрами по просмотрам и подписчикам", "Понимание алгоритмов коротких видео", "Аккуратность с ограничениями площадок"] },
+  { cat: "ubt", title: "Монтажёр вертикальных видео", pay: "300–700 ₽", unit: "за ролик", lvl: 0, type: "Подработка",
+    text: "Нарезаете вертикальные ролики 15–60 секунд для УБТ-сеток: хук в первые 2 секунды, субтитры, динамика.",
+    tasks: ["10–30 роликов в неделю по шаблонам", "Субтитры и звуковые акценты", "Адаптация под Shorts, Reels и TikTok"],
+    reqs: ["CapCut или Premiere Pro", "2–3 примера работ", "Готовность к тестовому ролику"] },
+
+  { cat: "blog", title: "SMM-менеджер личного бренда", pay: "45 000–80 000 ₽", unit: "в месяц", lvl: 1, type: "Удалённо",
+    text: "Ведёте личный блог эксперта в Telegram и Instagram: контент-план, сторис, прогревы, рост подписчиков.",
+    tasks: ["Контент-план на месяц и рубрикатор", "Сторис-прогревы под продажи", "Аналитика охватов и реакций"],
+    reqs: ["Опыт ведения блога от 10 тыс. подписчиков", "Чувство стиля и тона автора", "Базовый Canva или Figma"] },
+  { cat: "blog", title: "Сценарист Reels и постов", pay: "500–1 500 ₽", unit: "за сценарий", lvl: 0, type: "Подработка",
+    text: "Пишете сценарии коротких видео и посты голосом автора. Нужно цеплять с первой строки и вести к целевому действию.",
+    tasks: ["Сценарии Reels с хуком и структурой", "Посты для Telegram-канала", "Работа с правками автора"],
+    reqs: ["Живой, простой слог", "Насмотренность в своей нише", "Тестовое задание"] },
+
+  { cat: "key", title: "Менеджер проектов: YouTube-канал под ключ", pay: "80 000–140 000 ₽", unit: "в месяц", lvl: 2, type: "Полная занятость",
+    text: "Запускаете каналы клиентов от идеи до монетизации: ниша, команда, выпуск роликов по графику, отчёты.",
+    tasks: ["Анализ ниши и конкурентов", "Управление сценаристом, монтажёром, дизайнером", "Отчёты клиенту по просмотрам и CTR"],
+    reqs: ["Опыт запуска каналов от 2 лет", "YouTube Studio и аналитика", "Навык общения с клиентом"] },
+  { cat: "key", title: "Дизайнер превью и оформления канала", pay: "700–2 000 ₽", unit: "за превью", lvl: 0, type: "Подработка",
+    text: "Рисуете превью, на которые кликают, и оформляете каналы: шапка, аватар, обложки плейлистов.",
+    tasks: ["3 варианта превью на ролик для A/B-теста", "Оформление канала в одном стиле", "Работа по брифу и референсам"],
+    reqs: ["Photoshop или Figma", "Портфолио превью", "Понимание CTR"] },
+
+  { cat: "west", title: "Сценарист англоязычных faceless-видео", pay: "$15–40", unit: "за сценарий", lvl: 1, type: "Удалённо",
+    text: "Пишете сценарии на английском для документальных и объясняющих каналов на 8–15 минут. Аудитория США и Европы.",
+    tasks: ["Ресёрч темы и проверка фактов", "Сценарий с удержанием внимания", "Заголовки и описания под SEO"],
+    reqs: ["Английский от C1", "Понимание удержания аудитории", "Тестовый сценарий"] },
+  { cat: "west", title: "Монтажёр для западного YouTube", pay: "$30–80", unit: "за ролик", lvl: 1, type: "Удалённо",
+    text: "Монтируете длинные ролики для англоязычных каналов: стоки, анимация, звук. Ставка зависит от хронометража и уровня графики.",
+    tasks: ["Монтаж 10–20 минутных роликов", "Подбор стоков и музыки без страйков", "Моушн-графика и титры"],
+    reqs: ["Premiere Pro или DaVinci Resolve", "Портфолио англоязычных проектов", "Понимание авторского права на YouTube"] },
+];
+
+const $ = s => document.querySelector(s);
+const state = { cat: "", q: "", lvl: "" };
+const lvlName = ["Без опыта", "От 1 года", "От 2 лет"];
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const tc = i => "00:" + String(Math.floor(i * 4.7) % 60).padStart(2, "0") + ":" + String((i * 17) % 60).padStart(2, "0");
+
+["#tgFoot", "#tgFoot2", "#tgDlg"].forEach(s => $(s).textContent = "@" + TG);
+$("#tgLink").href = "https://t.me/" + TG;
+
+function renderTracks() {
+  const box = $("#tracks");
+  Object.entries(CATS).forEach(([k, v]) => {
+    const n = JOBS.filter(j => j.cat === k).length;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "track"; b.dataset.cat = k;
+    b.style.setProperty("--c", `var(${v.c})`);
+    b.setAttribute("aria-pressed", "false");
+    b.innerHTML = `<span class="name"><span class="dot"></span>${v.name}</span><span class="bar">${JOBS.filter(j => j.cat === k).map(j => `<span class="clip">${esc(j.pay)}</span>`).join("")}</span><span class="n">${n} вак.</span>`;
+    b.onclick = () => { state.cat = state.cat === k ? "" : k; render(); };
+    box.appendChild(b);
+  });
+}
+
+function render() {
+  document.querySelectorAll(".track").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.cat === state.cat)));
+  const q = state.q.trim().toLowerCase();
+  const list = JOBS.map((j, i) => ({ ...j, i })).filter(j =>
+    (!state.cat || j.cat === state.cat) &&
+    (state.lvl === "" || j.lvl <= +state.lvl) &&
+    (!q || [j.title, j.text, CATS[j.cat].name, ...j.tasks, ...j.reqs].join(" ").toLowerCase().includes(q)));
+  $("#count").textContent = `Найдено вакансий: ${list.length}` + (state.cat ? ` · ${CATS[state.cat].name}` : "");
+  $("#list").innerHTML = list.length ? list.map(j => `
+    <article class="job" style="--c: var(${CATS[j.cat].c})">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="row1"><h3>${esc(j.title)}</h3><span class="salary">${esc(j.pay)} <small>${esc(j.unit)}</small></span></div>
+        <div class="meta"><span class="chip cat">${CATS[j.cat].name}</span><span class="chip">${j.type}</span><span class="chip">${lvlName[j.lvl]}</span></div>
+        <p>${esc(j.text)}</p>
+        <details><summary>Задачи и требования</summary>
+          <div class="cols">
+            <div><h4>Задачи</h4><ul>${j.tasks.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>
+            <div><h4>Требования</h4><ul>${j.reqs.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>
+          </div>
+        </details>
+        <div class="actions"><span class="tc">ID ${tc(j.i + 1)}</span><button class="btn" type="button" data-apply="${j.i}">Откликнуться</button></div>
+      </div>
+    </article>`).join("")
+    : `<div class="empty">По этим условиям вакансий нет. Попробуйте другое слово или <button class="reset" type="button" onclick="resetAll()">сбросьте фильтры</button>.</div>`;
+}
+
+function resetAll() { state.cat = ""; state.q = ""; state.lvl = ""; $("#q").value = ""; $("#level").value = ""; render(); }
+
+$("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("#level").addEventListener("change", e => { state.lvl = e.target.value; render(); });
+$("#reset").addEventListener("click", resetAll);
+
+// Отклик
+const dlg = $("#dlg"), form = $("#form"), done = $("#done");
+let current = null;
+$("#list").addEventListener("click", e => {
+  const b = e.target.closest("[data-apply]"); if (!b) return;
+  current = JOBS[+b.dataset.apply];
+  $("#dlgTitle").textContent = current.title;
+  $("#dlgSub").textContent = `${CATS[current.cat].name} · ${current.pay} ${current.unit}`;
+  form.hidden = false; done.hidden = true;
+  dlg.showModal();
+});
+dlg.addEventListener("click", e => { if (e.target.closest("[data-close]") || e.target === dlg) dlg.close(); });
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const f = new FormData(form);
+  const missing = ["name", "tg"].find(k => !String(f.get(k)).trim());
+  if (missing) { form.elements[missing].focus(); form.elements[missing].setCustomValidity("Заполните это поле"); form.elements[missing].reportValidity(); return; }
+  const lines = [
+    `Отклик на вакансию: ${current.title} (${CATS[current.cat].name})`,
+    `Имя: ${f.get("name")}`,
+    `Связь: ${f.get("tg")}`,
+    f.get("link") ? `Портфолио: ${f.get("link")}` : "",
+    f.get("about") ? `О себе: ${f.get("about")}` : "",
+  ].filter(Boolean);
+  $("#out").textContent = lines.join("\n");
+  form.hidden = true; done.hidden = false;
+});
+form.addEventListener("input", e => e.target.setCustomValidity && e.target.setCustomValidity(""));
+$("#copy").addEventListener("click", () => {
+  const txt = $("#out").textContent, btn = $("#copy");
+  const ok = () => { btn.textContent = "Скопировано"; setTimeout(() => btn.textContent = "Скопировать", 1800); };
+  try {
+    navigator.clipboard.writeText(txt).then(ok, () => selectOut());
+  } catch { selectOut(); }
+});
+function selectOut() { const r = document.createRange(); r.selectNodeContents($("#out")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#copy").textContent = "Выделено — нажмите Ctrl+C"; }
+
+renderTracks();
+render();
+</script>
+</body>
+</html>
