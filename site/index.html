@@ -123,6 +123,7 @@ h2 { margin: 0; font: 700 clamp(22px, 3vw, 28px)/1.2 var(--font-display); letter
 .price b { font: 500 22px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .price s { color: var(--muted); font: 500 13px/1 var(--font-mono); }
 .price small { color: var(--muted); font-size: 12.5px; }
+.price .split { color: var(--ink); }
 .btn { border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .btn:hover { filter: brightness(1.05); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
@@ -141,7 +142,9 @@ h2 { margin: 0; font: 700 clamp(22px, 3vw, 28px)/1.2 var(--font-display); letter
 .faq details { border-bottom: 1px solid var(--line); padding-block: 14px; }
 .faq summary { cursor: pointer; font-weight: 600; }
 .faq p { margin: 8px 0 0; color: var(--muted); max-width: 70ch; }
-footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 28px; }
+footer .col { display: grid; gap: 4px; align-content: start; }
+footer b { color: var(--ink); font-weight: 600; }
 .handle { font-family: var(--font-mono); user-select: all; }
 
 /* Cart drawer */
@@ -169,6 +172,9 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
 .field { display: grid; gap: 5px; font-size: 14px; font-weight: 500; }
 .field input, .field textarea { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); font-weight: 400; }
 .field textarea { min-height: 70px; resize: vertical; }
+.check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; font-size: 13.5px; color: var(--muted); }
+.check input { margin: 3px 0 0; accent-color: var(--accent); width: 16px; height: 16px; }
+.check b { color: var(--ink); font-weight: 600; }
 .order pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 500 13px/1.5 var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .row > * { flex: 1 1 140px; }
@@ -205,6 +211,7 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
       <span><b>6</b> направлений</span>
       <span><b>3</b> тарифа в каждом</span>
       <span>Возврат в течение <b>7</b> дней</span>
+      <span>Оплата частями от <b>Т-Банка</b></span>
     </div>
     <div class="tracks" id="tracks" role="group" aria-label="Направления">
       <div class="ruler"><span>00:00</span><span>00:15</span><span>00:30</span><span>00:45</span><span>01:00</span></div>
@@ -226,7 +233,7 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
       <li><b>Выберите тариф</b><span>Курс для самостоятельного обучения, наставник или работа под ключ.</span></li>
       <li><b>Оформите заказ</b><span>Добавьте в корзину, укажите имя и Telegram.</span></li>
       <li><b>Отправьте заказ</b><span>Пришлите готовый текст заказа менеджеру <span class="handle" data-tg></span>.</span></li>
-      <li><b>Оплата и старт</b><span>Менеджер пришлёт ссылку на оплату картой или СБП и откроет доступ.</span></li>
+      <li><b>Оплата и старт</b><span>Менеджер пришлёт ссылку Т-Банка: картой, через СБП, «Долями» или в рассрочку.</span></li>
     </ol>
   </div>
 </section>
@@ -236,8 +243,9 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
     <h2>Вопросы</h2>
     <div class="faq">
       <details><summary>Какой тариф выбрать?</summary><p>«Курс» подходит, если готовы разбираться сами. «Наставник» даёт личные разборы и обратную связь. «Под ключ» значит, что работу делает наша команда, а вы получаете результат.</p></details>
-      <details><summary>Как проходит оплата?</summary><p>После заказа менеджер подтверждает состав и присылает ссылку на оплату картой или через СБП. Можно оплатить частями, если сумма больше 30 000 ₽.</p></details>
-      <details><summary>Можно вернуть деньги?</summary><p>Да. За курсы возвращаем полную сумму в течение 7 дней с момента покупки. По услугам под ключ возвращаем стоимость работ, которые ещё не начаты.</p></details>
+      <details><summary>Как проходит оплата?</summary><p>После заказа менеджер подтверждает состав и присылает ссылку на оплату Т-Банка. На странице оплаты можно заплатить картой, через СБП или выбрать оплату частями. Чек придёт в электронном виде.</p></details>
+      <details><summary>Можно оплатить частями?</summary><p>Да, через Т-Банк. «Долями»: 4 платежа раз в 2 недели без переплаты, первый — 25% сразу. Для дорогих тарифов есть рассрочка Т-Банка на несколько месяцев. Решение принимает банк за пару минут прямо на странице оплаты. Рассрочку предоставляет АО «ТБанк», лицензия Банка России № 2673. Доступность, лимит и условия определяет банк.</p></details>
+      <details><summary>Можно вернуть деньги?</summary><p>Да. За курсы возвращаем полную сумму в течение 7 дней с момента покупки. По услугам под ключ возвращаем стоимость работ, которые ещё не начаты. Если оплата была частями, деньги уходят в банк и закрывают долг. Подробно — в <a href="oferta.html">оферте</a>.</p></details>
       <details><summary>Вы гарантируете доход?</summary><p>Нет. Мы даём рабочие инструменты, разборы и команду, но результат зависит от ниши, вложенного времени и бюджета. Цифры из кейсов не являются обещанием.</p></details>
     </div>
   </div>
@@ -245,8 +253,23 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
 
 <footer>
   <div class="wrap">
-    <span>© 2026 Таймкод</span>
-    <span>Telegram: <span class="handle" data-tg></span></span>
+    <div class="col">
+      <b>© 2026 Таймкод</b>
+      <a href="oferta.html">Договор-оферта</a>
+      <a href="privacy.html">Политика персональных данных</a>
+    </div>
+    <div class="col">
+      <b data-seller="name"></b>
+      <span>ИНН <span data-seller="inn"></span></span>
+      <span>ОГРНИП <span data-seller="ogrnip"></span></span>
+      <span data-seller="city"></span>
+    </div>
+    <div class="col">
+      <b>Контакты</b>
+      <a data-seller="email" data-seller-href="email"></a>
+      <a data-seller="phone" data-seller-href="phone"></a>
+      <span>Telegram: <span class="handle" data-tg></span></span>
+    </div>
   </div>
 </footer>
 
@@ -257,9 +280,10 @@ footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); displa
   <div class="sum" id="sum"></div>
 </aside>
 
+<script src="seller.js"></script>
 <script>
-// Контакт для заказов: замените на свой Telegram
-const TG = "timecode_shop";
+// Контакт для заказов берётся из seller.js
+const TG = SELLER.tg;
 
 const CATS = {
   rko:  { name: "РКО",              c: "--t-rko"  },
@@ -320,6 +344,9 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const rub = n => n.toLocaleString("ru-RU") + " ₽";
 const priceLabel = t => t.text || rub(t.price);
+// «Долями» — 4 равных платежа; дорогие разовые тарифы — рассрочка банка
+const DOLYAMI_MAX = 30000;
+const splitLabel = t => !t.price || t.unit ? "" : t.price <= DOLYAMI_MAX ? `или 4 × ${rub(Math.ceil(t.price / 4))} «Долями»` : "или в рассрочку от Т-Банка";
 const state = { cat: "", tier: Object.fromEntries(PRODUCTS.map(p => [p.id, 0])) };
 let cart = [];
 try { cart = JSON.parse(localStorage.getItem("tc-cart") || "[]"); } catch { cart = []; }
@@ -362,7 +389,7 @@ function render() {
       <ul>${t.feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
       <div></div>
       <div class="foot">
-        <div class="price">${t.old ? `<s>${rub(t.old)}</s>` : ""}<b>${esc(priceLabel(t))}</b>${t.unit ? `<small>${esc(t.unit)}</small>` : `<small>разовый платёж</small>`}</div>
+        <div class="price">${t.old ? `<s>${rub(t.old)}</s>` : ""}<b>${esc(priceLabel(t))}</b>${t.unit ? `<small>${esc(t.unit)}</small>` : `<small>разовый платёж</small>`}${splitLabel(t) ? `<small class="split">${esc(splitLabel(t))}</small>` : ""}</div>
         <button class="btn ${inCart ? "added" : ""}" type="button" data-add="${p.id}">${inCart ? "В корзине ✓" : "В корзину"}</button>
       </div>
     </article>`;
@@ -415,11 +442,13 @@ function updateCart() {
         <label class="field" for="fName">Имя<input id="fName" name="name" autocomplete="name" required></label>
         <label class="field" for="fTg">Telegram или телефон<input id="fTg" name="tg" placeholder="@username" required></label>
         <label class="field" for="fNote">Комментарий<textarea id="fNote" name="note" placeholder="Ниша, ссылка на блог или канал, удобное время для связи"></textarea></label>
+        <label class="check"><input type="checkbox" name="split" value="1"><span><b>Хочу оплатить частями</b> — «Долями» или в рассрочку от Т-Банка</span></label>
+        <label class="check"><input type="checkbox" name="agree" value="1"><span>Принимаю условия <a href="oferta.html" target="_blank">оферты</a> и даю согласие на обработку персональных данных по <a href="privacy.html" target="_blank">политике</a></span></label>
         <button class="btn wide" type="submit">Оформить заказ</button>
         <button class="btn ghost wide" type="button" id="back">Назад к корзине</button>
       </form>`;
   } else {
-    sum.innerHTML = `${totalRow}<p class="note">Оплата картой или через СБП после подтверждения заказа менеджером. Возврат в течение 7 дней.</p>
+    sum.innerHTML = `${totalRow}<p class="note">Оплата по ссылке Т-Банка после подтверждения заказа: картой, через СБП, «Долями» или в рассрочку. Возврат в течение 7 дней.</p>
       <button class="btn wide" type="button" id="checkout">Перейти к оформлению</button>`;
   }
 }
@@ -445,6 +474,8 @@ $("#drawer").addEventListener("submit", e => {
     const el = e.target.elements[k];
     if (!String(f.get(k)).trim()) { el.setCustomValidity("Заполните это поле"); el.reportValidity(); el.addEventListener("input", () => el.setCustomValidity(""), { once: true }); return; }
   }
+  const agree = e.target.elements.agree;
+  if (!agree.checked) { agree.setCustomValidity("Без согласия мы не сможем оформить заказ"); agree.reportValidity(); agree.addEventListener("change", () => agree.setCustomValidity(""), { once: true }); return; }
   const lines = cart.map((k, i) => { const { p, t } = find(k.pid, k.ti); return `${i + 1}. ${p.title}, тариф «${t.name}»: ${priceLabel(t)}${t.unit ? " " + t.unit : ""}`; });
   orderText = [
     "Заказ с сайта Таймкод",
@@ -453,6 +484,7 @@ $("#drawer").addEventListener("submit", e => {
     "",
     `Имя: ${f.get("name")}`,
     `Связь: ${f.get("tg")}`,
+    `Оплата: ${f.get("split") ? "частями (Долями или рассрочка Т-Банка)" : "сразу"}`,
     f.get("note") ? `Комментарий: ${f.get("note")}` : "",
   ].filter((l, i, a) => l || a[i - 1] !== "").join("\n").trim();
   step = "done"; updateCart();
