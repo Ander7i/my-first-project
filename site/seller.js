@@ -1,14 +1,14 @@
 // Реквизиты продавца. Заполните один раз: они подставятся на все страницы сайта
 // (главная, оферта, политика персональных данных). Банк сверяет их при проверке сайта.
 const SELLER = {
-  name: "ИП Фамилия Имя Отчество",
-  inn: "000000000000",
-  ogrnip: "000000000000000",
-  city: "г. Москва",
-  email: "hello@example.ru",
-  phone: "+7 900 000-00-00",
+  name: "ИП Кретушев Денис Анатольевич",
+  inn: "524615798116",
+  ogrnip: "326527500160442",
+  city: "г. Нижний Новгород",
+  email: "topdefnik@gmail.com",
+  phone: "+7 930 709-68-62",
   tg: "timecode_shop",
-  site: "timecode.example",
+  site: "ander7i.github.io/my-first-project",
 };
 
 document.querySelectorAll("[data-seller]").forEach(el => {
