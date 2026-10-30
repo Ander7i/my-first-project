@@ -8,7 +8,7 @@ const SELLER = {
   email: "topdefnik@gmail.com",
   phone: "+7 930 709-68-62",
   tg: "A888MP_97",
-  site: "ander7i.github.io/my-first-project",
+  site: "production-ru.github.io/my-first-project",
 };
 
 document.querySelectorAll("[data-seller]").forEach(el => {
