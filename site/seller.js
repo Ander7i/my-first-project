@@ -7,7 +7,7 @@ const SELLER = {
   city: "г. Нижний Новгород",
   email: "topdefnik@gmail.com",
   phone: "+7 930 709-68-62",
-  tg: "timecode_shop",
+  tg: "A888MP_97",
   site: "ander7i.github.io/my-first-project",
 };
 
