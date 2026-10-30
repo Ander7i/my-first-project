@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Таймкод</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Наставничество и запуск под ключ: РКО, американский YouTube, УБТ-трафик, партнёрский маркетинг. Оплата картой, СБП, по реквизитам или в рассрочку.">
+<meta name="description" content="Наставничество и запуск под ключ: РКО, американский YouTube, УБТ-трафик, продюсирование экспертов. Оплата картой, СБП, по реквизитам или в рассрочку.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
@@ -26,7 +26,7 @@
   --n-rko: #2F7D6D;
   --n-us: #C8372D;
   --n-ubt: #D9692B;
-  --n-aff: #2E6FD0;
+  --n-prod: #8A4FB8;
   --em-fg: var(--ink);
   --em-hl: var(--accent);
   --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
@@ -39,7 +39,7 @@
   :root:not([data-theme="light"]) {
     --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
     --accent: #F0B33A; --board: #0A0F15; --board-ink: #E7ECF2; --board-line: #222C38; --up: #4CC489;
-    --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-aff: #6FA2EE;
+    --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-prod: #B386DB;
     --em-fg: var(--accent); --em-hl: transparent;
     color-scheme: dark;
   }
@@ -47,7 +47,7 @@
 :root[data-theme="dark"] {
   --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
   --accent: #F0B33A; --board: #0A0F15; --board-ink: #E7ECF2; --board-line: #222C38; --up: #4CC489;
-  --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-aff: #6FA2EE;
+  --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-prod: #B386DB;
   --em-fg: var(--accent); --em-hl: transparent;
   color-scheme: dark;
 }
@@ -255,7 +255,7 @@ footer b { color: var(--ink); font-weight: 600; }
     <div class="text">
       <span class="eyebrow">Наставничество и запуск под ключ</span>
       <h1>Четыре ниши, где онлайн <em>приносит деньги</em></h1>
-      <p class="lead">РКО, американский YouTube, УБТ-трафик и партнёрский маркетинг. Разбираем вашу ситуацию, выстраиваем систему и ведём до первых результатов. Оплатить можно картой, по реквизитам или в рассрочку.</p>
+      <p class="lead">РКО, американский YouTube, УБТ-трафик и продюсирование экспертов. Разбираем вашу ситуацию, выстраиваем систему и ведём до первых результатов. Оплатить можно картой, по реквизитам или в рассрочку.</p>
       <div class="acts">
         <a class="btn" href="#niches">Выбрать направление</a>
         <a class="btn ghost" href="#pay" data-open="split">Посчитать рассрочку</a>
@@ -448,10 +448,10 @@ const NICHES = [
     desc: "Условно-бесплатный трафик из коротких видео: сетка аккаунтов, связки, которые набирают просмотры, и перелив в Telegram.",
     feats: ["Схема сетки аккаунтов и прогрев", "Связки и хуки для вашей ниши", "Шаблоны монтажа вертикальных роликов", "Перелив в Telegram-воронку и учёт лидов"],
     term: "3–4 недели", format: "Наставник" },
-  { id: "aff", tag: "Партнёрский маркетинг", c: "--n-aff", title: "Партнёрский маркетинг (РКО)", short: "Реферальные ссылки банков", price: 70000,
-    desc: "Зарабатываете на партнёрских программах банков по РКО: приводите предпринимателей по своей ссылке через контент, Telegram-канал или сайт и получаете выплату за каждый открытый счёт.",
-    feats: ["Выбор партнёрских программ банков и условий выплат", "Площадка: Telegram-канал, сайт или соцсети", "Контент и подборки тарифов, которые приводят клиентов", "Маркировка рекламы и учёт выплат"],
-    term: "4–6 недель", format: "Наставник" },
+  { id: "prod", tag: "Продюсирование", c: "--n-prod", title: "Продюсирование эксперта", short: "Упаковка, продукт, запуск", price: 100000,
+    desc: "Упаковываем вашу экспертизу, собираем продукт и воронку продаж и проводим запуск вместе с вами: от позиционирования до первых оплат.",
+    feats: ["Распаковка и позиционирование эксперта", "Продуктовая линейка: от недорогого входа до основного продукта", "Воронка продаж: контент, прогрев, вебинар или консультации", "Сопровождение запуска и разбор цифр"],
+    term: "2–3 месяца", format: "Продюсер + чат" },
 ];
 
 const $ = s => document.querySelector(s);
