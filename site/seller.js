@@ -9,6 +9,11 @@ const SELLER = {
   phone: "+7 930 709-68-62",
   tg: "A888MP_97",
   site: "production-ru.github.io/my-first-project",
+  // Для оплаты по реквизитам. Пустой расчётный счёт на сайте показывается как «пришлём вместе со счётом».
+  account: "",
+  bank: "АО «ТБанк»",
+  bik: "044525974",
+  ks: "30101810145250000974",
 };
 
 document.querySelectorAll("[data-seller]").forEach(el => {

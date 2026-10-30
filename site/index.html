@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Таймкод</title>
-<meta name="description" content="Продюсирование экспертов: упаковка, продукт и запуск продаж. От 50 000 ₽, можно в рассрочку от Т-Банка.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Наставничество и запуск под ключ: РКО, американский YouTube, УБТ-трафик, арбитраж трафика на банки, трейдинг. Оплата картой, СБП, по реквизитам или в рассрочку.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Одна услуга: шапка, оффер с ценой, состав работ, оплата, вопросы, реквизиты */
+/* Layout: биржевое табло — бегущая строка с ценами, оффер с табло направлений, карточки ниш, разбор оплаты с калькулятором рассрочки */
 :root {
   --bg: #F2F4F6;
   --surface: #FFFFFF;
@@ -18,36 +19,50 @@
   --line: #D9DEE5;
   --accent: #E8A317;
   --accent-ink: #1A1300;
-  --prod: #8A4FB8;
+  --board: #121A24;
+  --board-ink: #E7ECF2;
+  --board-line: #26313E;
+  --up: #2F9E62;
+  --n-rko: #2F7D6D;
+  --n-us: #C8372D;
+  --n-ubt: #D9692B;
+  --n-arb: #2E6FD0;
+  --n-trd: #2F9E62;
   --em-fg: var(--ink);
   --em-hl: var(--accent);
   --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
   --font-body: "Golos Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --r: 10px;
+  --r: 12px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
-    --accent: #F0B33A; --prod: #B386DB; --em-fg: var(--accent); --em-hl: transparent;
+    --accent: #F0B33A; --board: #0A0F15; --board-ink: #E7ECF2; --board-line: #222C38; --up: #4CC489;
+    --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-arb: #6FA2EE; --n-trd: #4CC489;
+    --em-fg: var(--accent); --em-hl: transparent;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0F151D; --surface: #17202B; --ink: #E7ECF2; --muted: #95A1B2; --line: #2A3542;
-  --accent: #F0B33A; --prod: #B386DB; --em-fg: var(--accent); --em-hl: transparent;
+  --accent: #F0B33A; --board: #0A0F15; --board-ink: #E7ECF2; --board-line: #222C38; --up: #4CC489;
+  --n-rko: #4FB59F; --n-us: #EE6A5F; --n-ubt: #F08D52; --n-arb: #6FA2EE; --n-trd: #4CC489;
+  --em-fg: var(--accent); --em-hl: transparent;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.55 var(--font-body); }
 .wrap {
-  max-width: 1080px; margin: 0 auto;
+  max-width: 1160px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Шапка */
@@ -59,46 +74,148 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .top nav { display: flex; align-items: center; gap: 18px; font-size: 14px; color: var(--muted); }
 .top nav a { text-decoration: none; }
 .top nav a:hover { color: var(--ink); }
-
-.btn { border: 0; border-radius: 8px; padding: 11px 18px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn { border: 0; border-radius: 9px; padding: 11px 18px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .btn:hover { filter: brightness(1.05); }
-.top nav .btn { color: var(--accent-ink); }
-.btn.sm { padding: 7px 14px; font-size: 14px; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.top nav .btn { color: var(--accent-ink); padding: 7px 14px; }
+
+/* Бегущая строка */
+.tape { background: var(--board); color: var(--board-ink); overflow: hidden; border-bottom: 1px solid var(--board-line); }
+.tape .row { display: flex; width: max-content; }
+.tape .set { display: flex; gap: 36px; padding: 9px 18px; font: 500 13px/1 var(--font-mono); white-space: nowrap; }
+.tape .set span { display: inline-flex; gap: 10px; align-items: center; }
+.tape .set span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+.tape .set b { color: var(--up); font-weight: 500; }
+@media (prefers-reduced-motion: no-preference) {
+  .tape .row { animation: tape 38s linear infinite; }
+  .tape:hover .row { animation-play-state: paused; }
+  @keyframes tape { to { transform: translateX(-50%); } }
+}
 
 /* Оффер */
-.hero .wrap { padding-block: 48px 40px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
-.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--prod); }
-.hero .text { display: grid; gap: 18px; }
-h1 { margin: 0; font: 700 clamp(30px, 5.2vw, 52px)/1.05 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+.hero .wrap { padding-block: 48px 44px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.hero .text { display: grid; gap: 18px; align-content: start; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 700 clamp(30px, 5vw, 54px)/1.05 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
 h1 em { font-style: normal; color: var(--em-fg); background: linear-gradient(transparent 62%, var(--em-hl) 62%); }
-.lead { margin: 0; max-width: 56ch; color: var(--muted); font-size: 18px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-top: 5px solid var(--prod); border-radius: var(--r); padding: 22px; display: grid; gap: 14px; }
-.card .price { font: 500 34px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
-.card .price small { font: 400 16px/1 var(--font-body); color: var(--muted); margin-right: 6px; }
-.card p { margin: 0; color: var(--muted); font-size: 14.5px; }
-.card .split { color: var(--ink); font-weight: 500; }
-.card .btn { width: 100%; padding-block: 13px; }
+.lead { margin: 0; max-width: 54ch; color: var(--muted); font-size: 18px; }
+.hero .acts { display: flex; flex-wrap: wrap; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); }
+.chips b { color: var(--ink); font-weight: 600; }
+
+.board { background: var(--board); color: var(--board-ink); border-radius: var(--r); overflow: hidden; border: 1px solid var(--board-line); box-shadow: 0 18px 40px -24px rgb(10 15 22 / .55); }
+.board .bh { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--board-ink) 55%, transparent); border-bottom: 1px solid var(--board-line); }
+.board .bh .live::before { content: "● "; color: var(--up); }
+.board a { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--board-line); text-decoration: none; }
+.board a:last-child { border-bottom: 0; }
+.board a:hover { background: color-mix(in srgb, var(--board-ink) 6%, transparent); }
+.board .sw { width: 10px; height: 26px; border-radius: 3px; background: var(--c); }
+.board .nm { font-weight: 600; font-size: 15px; display: grid; gap: 2px; min-width: 0; }
+.board .nm small { font-weight: 400; font-size: 12.5px; color: color-mix(in srgb, var(--board-ink) 60%, transparent); }
+.board .px { font: 500 16px/1.2 var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.board .px small { display: block; font-size: 11.5px; color: var(--up); }
 
 /* Секции */
-.band { border-top: 1px solid var(--line); background: var(--surface); }
-.band.alt { background: var(--bg); }
-.band .wrap { padding-block: 44px; display: grid; gap: 22px; }
-h2 { margin: 0; font: 700 clamp(22px, 3vw, 28px)/1.2 var(--font-display); letter-spacing: -0.01em; text-wrap: balance; }
-.feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
-.feats li { border-left: 3px solid var(--prod); padding: 2px 0 2px 14px; display: grid; gap: 4px; align-content: start; }
-.feats b { font-size: 16px; }
-.feats span { color: var(--muted); font-size: 15px; }
-.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
-.steps li { counter-increment: s; display: grid; gap: 4px; align-content: start; }
-.steps li::before { content: "0" counter(s); font: 500 13px/1 var(--font-mono); color: var(--accent); }
-.steps b { font-size: 16px; }
-.steps span { color: var(--muted); font-size: 15px; }
-.faq { display: grid; border-top: 1px solid var(--line); }
-.faq details { border-bottom: 1px solid var(--line); padding-block: 14px; }
-.faq summary { cursor: pointer; font-weight: 600; }
-.faq p { margin: 8px 0 0; color: var(--muted); max-width: 70ch; }
-.cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-.cta p { margin: 0; color: var(--muted); max-width: 52ch; }
+.band { border-top: 1px solid var(--line); }
+.band.s { background: var(--surface); }
+.band > .wrap { padding-block: 52px; display: grid; gap: 26px; }
+.sh { display: grid; gap: 8px; max-width: 64ch; }
+h2 { margin: 0; font: 700 clamp(24px, 3.4vw, 34px)/1.15 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+.sh p { margin: 0; color: var(--muted); }
+h3 { margin: 0; text-wrap: balance; }
+
+/* Ниши */
+.niches { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+.niche { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: grid; grid-template-rows: auto auto 1fr auto auto; overflow: hidden; position: relative; }
+.niche::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--c); }
+.niche .nh { padding: 22px 22px 0; display: grid; gap: 10px; }
+.niche .tag { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--c); }
+.niche h3 { font: 600 21px/1.25 var(--font-body); }
+.niche .price { font: 500 30px/1 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.niche .price small { font: 400 15px/1 var(--font-body); color: var(--muted); letter-spacing: 0; margin-right: 6px; }
+.niche .mo { font-size: 13.5px; color: var(--muted); }
+.niche .mo b { color: var(--ink); font-weight: 600; font-family: var(--font-mono); font-size: 13px; }
+.niche p.d { margin: 0; color: var(--muted); font-size: 15px; }
+.niche ul { margin: 16px 22px 0; padding: 0; list-style: none; display: grid; gap: 7px; align-content: start; font-size: 15px; }
+.niche li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }
+.niche li::before { content: "▸"; color: var(--c); line-height: 1.55; }
+.niche .spec { margin: 16px 22px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.niche .spec div { background: var(--surface); padding: 8px 10px; display: grid; gap: 2px; font-size: 14px; }
+.niche .spec span { font: 500 10.5px/1.2 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.niche .nf { padding: 18px 22px 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+.niche .nf .btn { flex: 1 1 140px; }
+.niche .warn { margin: 14px 22px 0; font-size: 12.5px; color: var(--muted); border-left: 2px solid var(--c); padding-left: 10px; }
+.niche.ask { background: var(--board); color: var(--board-ink); border-color: var(--board-line); grid-template-rows: 1fr auto; }
+.niche.ask::before { background: var(--accent); }
+.niche.ask .nh { align-content: center; }
+.niche.ask .tag { color: var(--accent); }
+.niche.ask p.d { color: color-mix(in srgb, var(--board-ink) 70%, transparent); }
+
+/* Оплата */
+.pay { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 28px; align-items: start; }
+.tabs { display: grid; gap: 6px; position: sticky; top: 84px; }
+.tab { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: grid; gap: 2px; }
+.tab b { font-size: 15px; }
+.tab span { font-size: 13px; color: var(--muted); }
+.tab[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 26px; display: grid; gap: 18px; min-width: 0; }
+.panel h3 { font: 700 21px/1.25 var(--font-display); letter-spacing: -0.01em; }
+.panel > p { margin: 0; color: var(--muted); max-width: 66ch; }
+.flow { margin: 0; padding: 0; list-style: none; display: grid; counter-reset: f; }
+.flow li { counter-increment: f; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding-bottom: 18px; position: relative; }
+.flow li::before { content: counter(f); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--line); font: 500 14px/1 var(--font-mono); }
+.flow li:not(:last-child)::after { content: ""; position: absolute; left: 16.5px; top: 36px; bottom: 2px; width: 1px; background: var(--line); }
+.flow b { display: block; padding-top: 5px; }
+.flow span { color: var(--muted); font-size: 15px; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 12px 14px; }
+
+.req { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.req > div { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.req > div:last-child { border-bottom: 0; }
+.req .k { color: var(--muted); font-size: 14px; }
+.req .v { font: 500 14.5px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+.req .v.pending { font-family: var(--font-body); font-weight: 400; color: var(--muted); }
+.cp { border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.cp.ok { border-color: var(--up); color: var(--up); }
+
+.ways { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.ways table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14.5px; }
+.ways th, .ways td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ways tr:last-child td { border-bottom: 0; }
+.ways th { font: 500 11px/1.2 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+.ways td:first-child { font-weight: 600; }
+.ways .y { color: var(--up); }
+
+.calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.calc .in { display: grid; gap: 14px; align-content: start; }
+.field { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }
+.field select, .field input { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; background: var(--bg); font-weight: 400; width: 100%; }
+.field input { font-family: var(--font-mono); }
+.terms { display: flex; flex-wrap: wrap; gap: 6px; }
+.terms button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 13px; cursor: pointer; font: 500 13px/1.2 var(--font-mono); }
+.terms button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.calc .out { background: var(--board); color: var(--board-ink); border-radius: 10px; padding: 20px; display: grid; gap: 14px; align-content: start; }
+.calc .out .lbl { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--board-ink) 55%, transparent); }
+.calc .big { font: 500 clamp(28px, 4vw, 38px)/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.calc .big small { font: 400 15px/1 var(--font-body); color: color-mix(in srgb, var(--board-ink) 60%, transparent); }
+.bars { display: flex; gap: 3px; height: 34px; }
+.bars i { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; opacity: .9; }
+.calc .alt { border-top: 1px solid var(--board-line); padding-top: 12px; font-size: 14px; display: grid; gap: 4px; color: color-mix(in srgb, var(--board-ink) 75%, transparent); }
+.calc .alt b { color: var(--board-ink); font-family: var(--font-mono); font-weight: 500; }
+
+/* Вопросы */
+.faq { display: grid; border-top: 1px solid var(--line); max-width: 860px; }
+.faq details { border-bottom: 1px solid var(--line); padding-block: 16px; }
+.faq summary { cursor: pointer; font-weight: 600; font-size: 17px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font: 500 20px/1 var(--font-mono); color: var(--muted); }
+.faq details[open] summary::after { content: "−"; }
+.faq .a { margin-top: 10px; color: var(--muted); max-width: 72ch; display: grid; gap: 8px; }
+.faq .a p { margin: 0; }
+.faq .a ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+.cta .wrap { padding-block: 44px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.cta h2 { max-width: 22ch; }
 
 footer { border-top: 1px solid var(--line); }
 footer .wrap { padding-block: 24px; font-size: 13px; color: var(--muted); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 28px; }
@@ -106,9 +223,17 @@ footer .col { display: grid; gap: 4px; align-content: start; }
 footer b { color: var(--ink); font-weight: 600; }
 .handle { font-family: var(--font-mono); }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 32px; }
+  .pay { grid-template-columns: minmax(0, 1fr); }
+  .tabs { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calc { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
   .top nav a:not(.btn) { display: none; }
+  .panel { padding: 18px; }
+  .req > div { grid-template-columns: minmax(0, 1fr) auto; }
+  .req .k { grid-column: 1 / -1; margin-bottom: -8px; font-size: 12.5px; }
 }
 </style>
 </head>
@@ -118,68 +243,171 @@ footer b { color: var(--ink); font-weight: 600; }
   <div class="wrap">
     <a class="logo" href="#"><i>▶</i>Таймкод</a>
     <nav>
-      <a href="#what">Что входит</a><a href="#pay">Оплата</a><a href="#faq">Вопросы</a>
-      <a class="btn sm" data-seller-href="tg" href="#" target="_blank" rel="noopener">Написать</a>
+      <a href="#niches">Направления</a><a href="#pay">Как оплатить</a><a href="#faq">Вопросы</a>
+      <a class="btn" data-seller-href="tg" href="#" target="_blank" rel="noopener">Написать</a>
     </nav>
   </div>
 </header>
 
+<div class="tape" aria-hidden="true"><div class="row" id="tape"></div></div>
+
 <section class="hero">
   <div class="wrap">
     <div class="text">
-      <span class="eyebrow">Продюсирование экспертов</span>
-      <h1>Запускаем ваши продажи <em>в онлайне</em></h1>
-      <p class="lead">Упакуем вашу экспертизу, соберём продукт и воронку продаж и проведём запуск вместе с вами. Состав работ и стоимость подбираем под вашу нишу и задачу.</p>
+      <span class="eyebrow">Наставничество и запуск под ключ</span>
+      <h1>Пять ниш, где онлайн <em>приносит деньги</em></h1>
+      <p class="lead">РКО, американский YouTube, УБТ-трафик, арбитраж на банки и трейдинг. Разбираем вашу ситуацию, выстраиваем систему и ведём до первых результатов. Оплатить можно картой, по реквизитам или в рассрочку.</p>
+      <div class="acts">
+        <a class="btn" href="#niches">Выбрать направление</a>
+        <a class="btn ghost" href="#pay" data-open="split">Посчитать рассрочку</a>
+      </div>
+      <div class="chips">
+        <span><b>Рассрочка</b> от Т-Банка</span>
+        <span><b>Оплата</b> по реквизитам для ИП и ООО</span>
+        <span><b>Возврат</b> за невыполненные работы</span>
+      </div>
     </div>
-    <aside class="card" aria-label="Стоимость">
-      <span class="eyebrow">Продюсирование</span>
-      <div class="price"><small>от</small>50 000 ₽</div>
-      <p class="split">Можно оплатить частями: «Долями» или в рассрочку от Т-Банка</p>
-      <p>Итоговую стоимость согласуем в переписке до оплаты.</p>
-      <a class="btn" data-seller-href="tg" href="#" target="_blank" rel="noopener">Обсудить в Telegram</a>
-    </aside>
+    <div class="board" aria-label="Направления и цены">
+      <div class="bh"><span>Направление</span><span class="live">Цена от</span></div>
+      <div id="board"></div>
+    </div>
   </div>
 </section>
 
-<section class="band" id="what">
+<section class="band s" id="niches">
   <div class="wrap">
-    <h2>Что входит</h2>
-    <ul class="feats">
-      <li><b>Распаковка и позиционирование</b><span>Определяем, кому и с чем вы помогаете и чем отличаетесь от конкурентов.</span></li>
-      <li><b>Продукт</b><span>Собираем линейку: от недорогого входа до основного продукта.</span></li>
-      <li><b>Воронка продаж</b><span>Контент, прогрев, вебинар или консультации — то, что подходит вашей нише.</span></li>
-      <li><b>Сопровождение запуска</b><span>Ведём запуск вместе с вами, разбираем цифры и корректируем по ходу.</span></li>
-    </ul>
+    <div class="sh">
+      <span class="eyebrow">Направления</span>
+      <h2>Выберите нишу</h2>
+      <p>Цена «от» — минимальный объём работ. Итоговую сумму согласуем в Telegram до оплаты, и без вашего согласия она не меняется.</p>
+    </div>
+    <div class="niches" id="nicheList"></div>
   </div>
 </section>
 
-<section class="band alt" id="pay">
+<section class="band" id="pay">
   <div class="wrap">
-    <h2>Как заказать и оплатить</h2>
-    <ol class="steps">
-      <li><b>Напишите в Telegram</b><span>Расскажите о своей нише и задаче: <span class="handle" data-seller="tg"></span>.</span></li>
-      <li><b>Согласуем работы</b><span>Обсудим, что нужно сделать, сроки и итоговую стоимость.</span></li>
-      <li><b>Оплатите по ссылке</b><span>Пришлём ссылку Т-Банка: картой, через СБП, «Долями» или в рассрочку.</span></li>
-      <li><b>Начинаем работу</b><span>Старт — в согласованную дату, не позже 10 рабочих дней после оплаты.</span></li>
-    </ol>
+    <div class="sh">
+      <span class="eyebrow">Оплата</span>
+      <h2>Как оплатить?</h2>
+      <p>Выберите вопрос, чтобы посмотреть разбор по шагам.</p>
+    </div>
+    <div class="pay">
+      <div class="tabs" role="tablist" aria-label="Способы оплаты">
+        <button class="tab" role="tab" id="t-how" aria-controls="p-how" aria-selected="true" type="button"><b>Как оплатить</b><span>Общий порядок</span></button>
+        <button class="tab" role="tab" id="t-req" aria-controls="p-req" aria-selected="false" type="button"><b>По реквизитам</b><span>Перевод на счёт ИП</span></button>
+        <button class="tab" role="tab" id="t-ways" aria-controls="p-ways" aria-selected="false" type="button"><b>Другие варианты</b><span>Карта, СБП, «Долями»</span></button>
+        <button class="tab" role="tab" id="t-split" aria-controls="p-split" aria-selected="false" type="button"><b>Рассрочка</b><span>Калькулятор платежа</span></button>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-how" aria-labelledby="t-how">
+        <h3>Как оплатить: разбор</h3>
+        <p>Мы не берём деньги «вслепую». Сначала договариваемся о составе работ и сумме, потом вы платите удобным способом.</p>
+        <ol class="flow">
+          <li><div><b>Напишите в Telegram</b><span>Назовите нишу и расскажите о задаче: <span class="handle" data-seller="tg"></span>.</span></div></li>
+          <li><div><b>Согласуем работы и сумму</b><span>Пришлём состав работ, сроки и итоговую стоимость. Сумма фиксируется до оплаты.</span></div></li>
+          <li><div><b>Выберите способ оплаты</b><span>Ссылка Т-Банка (карта, СБП, «Долями», рассрочка) или счёт на оплату по реквизитам.</span></div></li>
+          <li><div><b>Получите чек</b><span>Электронный чек придёт на почту или в Telegram после зачисления.</span></div></li>
+          <li><div><b>Начинаем работу</b><span>Старт в согласованную дату, не позже 10 рабочих дней после оплаты.</span></div></li>
+        </ol>
+        <p class="note">Платите только по ссылке или реквизитам, которые прислал наш Telegram <span class="handle" data-seller="tg"></span>. Реквизиты ИП на сайте совпадают с указанными в <a href="oferta.html">оферте</a>.</p>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-req" aria-labelledby="t-req" hidden>
+        <h3>Оплата по реквизитам: разбор</h3>
+        <p>Подходит, если платите со счёта ИП или ООО либо хотите обычный банковский перевод. Деньги зачисляются в течение 1 рабочего дня.</p>
+        <ol class="flow">
+          <li><div><b>Запросите счёт</b><span>Напишите в Telegram, на кого выставить: ФИО или название компании и ИНН.</span></div></li>
+          <li><div><b>Оплатите счёт</b><span>В банковском приложении создайте платёж по реквизитам ниже. Сумму и назначение берите из счёта.</span></div></li>
+          <li><div><b>Пришлите подтверждение</b><span>Скриншот или платёжку в Telegram, чтобы мы начали работу, не дожидаясь зачисления.</span></div></li>
+        </ol>
+        <div class="req" id="reqs"></div>
+        <p class="note">Назначение платежа: «Оплата по счёту № … за консультационные услуги. НДС не облагается». Номер счёта пришлём вместе со счётом.</p>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-ways" aria-labelledby="t-ways" hidden>
+        <h3>Какие ещё есть варианты</h3>
+        <p>Все способы, кроме перевода по реквизитам, работают через одну ссылку Т-Банка: открываете её и выбираете, как платить.</p>
+        <div class="ways">
+          <table>
+            <thead><tr><th>Способ</th><th>Как платите</th><th>Зачисление</th><th>Переплата</th></tr></thead>
+            <tbody>
+              <tr><td>Банковская карта</td><td>Мир, Visa, Mastercard любого российского банка</td><td>Сразу</td><td class="y">Нет</td></tr>
+              <tr><td>СБП</td><td>QR-код или кнопка банка в приложении</td><td>Сразу</td><td class="y">Нет</td></tr>
+              <tr><td>«Долями»</td><td>4 платежа: 25% сейчас и по 25% раз в 2 недели</td><td>Сразу</td><td class="y">Нет, если платить вовремя</td></tr>
+              <tr><td>Рассрочка Т-Банка</td><td>Платежи раз в месяц, решение за пару минут</td><td>После одобрения</td><td>Условия покажет банк</td></tr>
+              <tr><td>По реквизитам</td><td>Перевод со счёта физлица, ИП или ООО</td><td>До 1 рабочего дня</td><td class="y">Нет</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Не уверены, что выбрать? Для небольших сумм обычно удобнее «Долями», для 100 000 ₽ и больше — рассрочка на 6–12 месяцев.</p>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-split" aria-labelledby="t-split" hidden>
+        <h3>Рассрочка: разбор и калькулятор</h3>
+        <p>Рассрочку оформляет Т-Банк прямо на странице оплаты: нужен паспорт, решение за пару минут, в офис идти не надо. Мы получаем всю сумму от банка, вы платите банку частями.</p>
+        <div class="calc">
+          <div class="in">
+            <label class="field" for="cNiche">Направление
+              <select id="cNiche"></select>
+            </label>
+            <label class="field" for="cSum">Сумма, ₽
+              <input id="cSum" inputmode="numeric" autocomplete="off">
+            </label>
+            <div class="field"><span>Срок</span>
+              <div class="terms" id="cTerms" role="group" aria-label="Срок рассрочки"></div>
+            </div>
+          </div>
+          <div class="out" aria-live="polite">
+            <span class="lbl">Платёж в месяц</span>
+            <div class="big" id="cMonth"></div>
+            <div class="bars" id="cBars" aria-hidden="true"></div>
+            <div class="alt">
+              <span>«Долями»: <b id="cDol"></b> × 4 раза в 2 недели</span>
+              <span>Сразу картой или СБП: <b id="cFull"></b></span>
+            </div>
+          </div>
+        </div>
+        <p class="note">Расчёт примерный, без учёта возможной переплаты. Точный срок, лимит и график платежей банк покажет на странице оплаты. Рассрочку предоставляет АО «ТБанк», лицензия Банка России № 2673.</p>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="band" id="faq">
+<section class="band s" id="faq">
   <div class="wrap">
-    <h2>Вопросы</h2>
+    <div class="sh"><span class="eyebrow">Вопросы</span><h2>Частые вопросы</h2></div>
     <div class="faq">
-      <details><summary>Сколько стоит?</summary><p>От 50 000 ₽. Точную сумму называем до оплаты, и без вашего согласия она не меняется.</p></details>
-      <details><summary>Можно оплатить частями?</summary><p>Да. На странице оплаты Т-Банка можно выбрать «Долями» (4 платежа раз в 2 недели без переплаты) или рассрочку Т-Банка на несколько месяцев. Решение банк принимает за пару минут. Рассрочку предоставляет АО «ТБанк», лицензия Банка России № 2673. Доступность, лимит и условия определяет банк.</p></details>
-      <details><summary>Можно вернуть деньги?</summary><p>Да. Отказаться можно в любой момент — вернём стоимость работ, которые ещё не выполнены. Если оплата была частями, деньги уходят в банк и закрывают долг. Подробно — в <a href="oferta.html">оферте</a>.</p></details>
-      <details><summary>Вы гарантируете доход?</summary><p>Нет. Мы отвечаем за качество своей работы, но результат зависит от ниши, вложенного времени, бюджета и ваших действий.</p></details>
+      <details open><summary>Как оплатить?</summary><div class="a">
+        <p>Сначала пишете в Telegram, мы согласуем работы и сумму. Потом присылаем ссылку Т-Банка или счёт на оплату по реквизитам.</p>
+        <ul><li>Картой или через СБП — деньги зачисляются сразу.</li><li>«Долями» или в рассрочку — на той же странице оплаты.</li><li>По реквизитам — переводом со счёта, до 1 рабочего дня.</li></ul>
+        <p>Чек приходит в электронном виде. Подробный разбор — <a href="#pay" data-open="how">в разделе оплаты</a>.</p>
+      </div></details>
+      <details><summary>Можно оплатить по реквизитам?</summary><div class="a">
+        <p>Да, со счёта физлица, ИП или ООО. Напишите, на кого выставить счёт, и оплатите его в приложении своего банка. Получатель — <span data-seller="name"></span>, ИНН <span data-seller="inn"></span>.</p>
+        <p>Полные реквизиты с кнопками копирования — <a href="#pay" data-open="req">в разделе оплаты</a>.</p>
+      </div></details>
+      <details><summary>Какие ещё есть варианты?</summary><div class="a">
+        <p>Кроме перевода по реквизитам: банковская карта, СБП, «Долями» (4 платежа раз в 2 недели) и рассрочка Т-Банка. Всё это доступно по одной ссылке на оплату.</p>
+        <p>Сравнение способов по срокам и переплате — <a href="#pay" data-open="ways">в таблице</a>.</p>
+      </div></details>
+      <details><summary>Есть рассрочка?</summary><div class="a">
+        <p>Да, от Т-Банка. Её оформляют прямо на странице оплаты, решение приходит за пару минут. Мы получаем полную сумму от банка, а вы платите банку частями раз в месяц.</p>
+        <p>Если откажетесь от услуг, деньги за невыполненную работу вернутся в банк и уменьшат ваш долг. Посчитать платёж можно <a href="#pay" data-open="split">в калькуляторе</a>.</p>
+      </div></details>
+      <details><summary>Можно вернуть деньги?</summary><div class="a">
+        <p>Да. Отказаться можно в любой момент: вернём стоимость работ, которые ещё не выполнены. Порядок описан в <a href="oferta.html">оферте</a>.</p>
+      </div></details>
+      <details><summary>Вы гарантируете доход?</summary><div class="a">
+        <p>Нет. Мы отвечаем за качество своей работы, но результат зависит от ниши, бюджета, времени и ваших действий. В трейдинге, кроме того, всегда есть риск потерять вложенные деньги.</p>
+      </div></details>
     </div>
   </div>
 </section>
 
-<section class="band alt">
-  <div class="wrap cta">
-    <p>Расскажите о своей задаче — ответим, подойдёт ли вам продюсирование и сколько это будет стоить.</p>
+<section class="band cta">
+  <div class="wrap">
+    <h2>Расскажите о задаче — ответим за день</h2>
     <a class="btn" data-seller-href="tg" href="#" target="_blank" rel="noopener">Написать в Telegram</a>
   </div>
 </section>
@@ -207,5 +435,133 @@ footer b { color: var(--ink); font-weight: 600; }
 </footer>
 
 <script src="seller.js"></script>
+<script>
+const NICHES = [
+  { id: "rko", tag: "РКО", c: "--n-rko", title: "Агентский бизнес на РКО", short: "Расчётные счета для бизнеса", price: 100000,
+    desc: "Выстраиваем доход на открытии расчётных счетов через партнёрские программы банков: от первых заявок до своей команды менеджеров.",
+    feats: ["Подбор партнёрских программ банков под ваш регион", "Скрипты звонков и источники базы предпринимателей", "Найм и обучение 2–5 менеджеров", "Учёт заявок, выплат и отчётность в CRM"],
+    term: "6–8 недель", format: "Созвоны + чат" },
+  { id: "us", tag: "Американский YouTube", c: "--n-us", title: "Канал на американский YouTube", short: "Faceless-канал, доход в долларах", price: 100000,
+    desc: "Запускаем англоязычный faceless-канал на аудиторию США: ниша с высоким CPM, сценарии, озвучка, монтаж и выход на монетизацию.",
+    feats: ["Ниша и анализ конкурентов в США", "Сценарии на английском и озвучка", "Монтаж, превью и SEO под американскую аудиторию", "Подключение монетизации и вывод дохода"],
+    term: "2–3 месяца", format: "Под ключ" },
+  { id: "ubt", tag: "УБТ", c: "--n-ubt", title: "УБТ-трафик из коротких видео", short: "Shorts, Reels, TikTok", price: 20000,
+    desc: "Условно-бесплатный трафик из коротких видео: сетка аккаунтов, связки, которые набирают просмотры, и перелив в Telegram.",
+    feats: ["Схема сетки аккаунтов и прогрев", "Связки и хуки для вашей ниши", "Шаблоны монтажа вертикальных роликов", "Перелив в Telegram-воронку и учёт лидов"],
+    term: "3–4 недели", format: "Наставник" },
+  { id: "arb", tag: "Арбитраж на банки", c: "--n-arb", title: "Арбитраж трафика на банки", short: "Карты, РКО, кредиты через CPA", price: 70000,
+    desc: "Лиды на банковские продукты через CPA-сети: дебетовые и кредитные карты, РКО. Учим лить в плюс и соблюдать правила банков.",
+    feats: ["Выбор CPA-сетей и офферов банков", "Источники трафика и первые связки", "Расчёт ROI и масштабирование", "Маркировка рекламы и требования банков к трафику"],
+    term: "4–6 недель", format: "Наставник" },
+  { id: "trd", tag: "Трейдинг", c: "--n-trd", title: "Наставничество по трейдингу", short: "Своя торговая система", price: 150000,
+    desc: "Личный наставник помогает собрать торговую систему: анализ, риск-менеджмент, дневник сделок и разбор ваших ошибок.",
+    feats: ["Основы рынка и выбор инструментов", "Торговая система с правилами входа и выхода", "Риск-менеджмент и размер позиции", "Еженедельный разбор ваших сделок"],
+    term: "8–12 недель", format: "Наставник 1 на 1",
+    warn: "Мы не управляем вашими деньгами и не даём сигналы. Материалы не являются индивидуальной инвестиционной рекомендацией. Торговля на бирже связана с риском потери средств." },
+];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const rub = n => Math.round(n).toLocaleString("ru-RU") + " ₽";
+const TGURL = "https://t.me/" + SELLER.tg;
+
+// Бегущая строка и табло
+const tapeSet = NICHES.map(n => `<span style="--c: var(${n.c})">${esc(n.tag)} <b>от ${rub(n.price)}</b></span>`).join("")
+  + `<span style="--c: var(--accent)">Рассрочка <b>от Т-Банка</b></span>`;
+$("#tape").innerHTML = `<div class="set">${tapeSet}</div><div class="set">${tapeSet}</div>`;
+$("#board").innerHTML = NICHES.map(n => `
+  <a href="#n-${n.id}" style="--c: var(${n.c})"><span class="sw"></span>
+    <span class="nm">${esc(n.tag)}<small>${esc(n.short)}</small></span>
+    <span class="px">${rub(n.price)}<small>≈ ${rub(n.price / 12)}/мес</small></span></a>`).join("");
+
+// Карточки ниш
+$("#nicheList").innerHTML = NICHES.map(n => `
+  <article class="niche" id="n-${n.id}" style="--c: var(${n.c})">
+    <div class="nh">
+      <span class="tag">${esc(n.tag)}</span>
+      <h3>${esc(n.title)}</h3>
+      <div class="price"><small>от</small>${rub(n.price)}</div>
+      <div class="mo">или примерно <b>${rub(n.price / 12)}</b> в месяц в рассрочку на 12 мес.</div>
+      <p class="d">${esc(n.desc)}</p>
+    </div>
+    <div class="spec"><div><span>Срок</span>${esc(n.term)}</div><div><span>Формат</span>${esc(n.format)}</div></div>
+    <ul>${n.feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+    ${n.warn ? `<p class="warn">${esc(n.warn)}</p>` : "<div></div>"}
+    <div class="nf">
+      <a class="btn" href="${TGURL}" target="_blank" rel="noopener">Обсудить</a>
+      <button class="btn ghost" type="button" data-calc="${n.id}">Рассрочка</button>
+    </div>
+  </article>`).join("") + `
+  <article class="niche ask">
+    <div class="nh">
+      <span class="tag">Не нашли свою нишу?</span>
+      <h3>Соберём программу под вашу задачу</h3>
+      <p class="d">Напишите, чем занимаетесь и какой результат нужен. Ответим, сможем ли помочь и сколько это будет стоить.</p>
+    </div>
+    <div class="nf"><a class="btn" href="${TGURL}" target="_blank" rel="noopener">Написать в Telegram</a></div>
+  </article>`;
+
+// Реквизиты: пустые поля показываем как «пришлём вместе со счётом»
+const REQ = [
+  ["Получатель", SELLER.name],
+  ["ИНН", SELLER.inn],
+  ["ОГРНИП", SELLER.ogrnip],
+  ["Расчётный счёт", SELLER.account],
+  ["Банк", SELLER.bank],
+  ["БИК", SELLER.bik],
+  ["Корр. счёт", SELLER.ks],
+];
+$("#reqs").innerHTML = REQ.map(([k, v]) => v
+  ? `<div><span class="k">${k}</span><span class="v">${esc(v)}</span><button class="cp" type="button" data-copy="${esc(v)}">Копировать</button></div>`
+  : `<div><span class="k">${k}</span><span class="v pending">Пришлём вместе со счётом</span><span></span></div>`).join("");
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const done = () => { b.textContent = "Скопировано"; b.classList.add("ok"); setTimeout(() => { b.textContent = "Копировать"; b.classList.remove("ok"); }, 1600); };
+  const pick = () => { const r = document.createRange(); r.selectNodeContents(b.previousElementSibling); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Выделено"; };
+  try { navigator.clipboard.writeText(b.dataset.copy).then(done, pick); } catch { pick(); }
+});
+
+// Вкладки оплаты
+const tabs = [...document.querySelectorAll(".tab")];
+function openTab(key) {
+  tabs.forEach(t => {
+    const on = t.id === "t-" + key;
+    t.setAttribute("aria-selected", String(on));
+    document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+  });
+}
+tabs.forEach(t => t.addEventListener("click", () => openTab(t.id.slice(2))));
+document.querySelectorAll("[data-open]").forEach(a => a.addEventListener("click", () => openTab(a.dataset.open)));
+
+// Калькулятор рассрочки
+const TERMS = [3, 6, 10, 12, 18, 24];
+const calc = { sum: NICHES[0].price, term: 12 };
+$("#cNiche").innerHTML = NICHES.map(n => `<option value="${n.id}">${esc(n.tag)} — от ${rub(n.price)}</option>`).join("") + `<option value="">Своя сумма</option>`;
+$("#cTerms").innerHTML = TERMS.map(t => `<button type="button" data-term="${t}">${t} мес</button>`).join("");
+function renderCalc(keepInput) {
+  const s = Math.max(0, calc.sum || 0);
+  if (!keepInput) $("#cSum").value = s ? s.toLocaleString("ru-RU") : "";
+  document.querySelectorAll("[data-term]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.term === calc.term)));
+  $("#cMonth").innerHTML = `${rub(s / calc.term)} <small>× ${calc.term} мес</small>`;
+  $("#cBars").innerHTML = "<i></i>".repeat(calc.term);
+  $("#cDol").textContent = rub(s / 4);
+  $("#cFull").textContent = rub(s);
+}
+$("#cNiche").addEventListener("change", e => { const n = NICHES.find(x => x.id === e.target.value); if (n) calc.sum = n.price; renderCalc(); });
+$("#cSum").addEventListener("input", e => {
+  calc.sum = +e.target.value.replace(/\D/g, "").slice(0, 9);
+  $("#cNiche").value = (NICHES.find(n => n.price === calc.sum) || { id: "" }).id;
+  renderCalc(true);
+});
+$("#cSum").addEventListener("blur", () => renderCalc());
+$("#cTerms").addEventListener("click", e => { const b = e.target.closest("[data-term]"); if (b) { calc.term = +b.dataset.term; renderCalc(); } });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-calc]"); if (!b) return;
+  const n = NICHES.find(x => x.id === b.dataset.calc);
+  calc.sum = n.price; $("#cNiche").value = n.id; renderCalc();
+  openTab("split"); $("#pay").scrollIntoView({ behavior: "smooth" });
+});
+renderCalc();
+</script>
 </body>
 </html>
